@@ -2,16 +2,30 @@ import { ANSWER_KEYS, type AnswerKey, type ImportSourceType, type ParseIssue, ty
 
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
 
+const BANGLA_DIGITS: Record<string, string> = { "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4", "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9" };
+
+function normalizeDigits(value: string) {
+  return value.replace(/[০-৯]/g, (digit) => BANGLA_DIGITS[digit]);
+}
+
+function answerKeyFromLabel(value: unknown): AnswerKey | undefined {
+  const label = normalizeDigits(String(value ?? "")).trim().toUpperCase();
+  const banglaOptions: Record<string, AnswerKey> = { "ক": "A", "খ": "B", "গ": "C", "ঘ": "D" };
+  if (banglaOptions[label]) return banglaOptions[label];
+  if (/^[1-4]$/.test(label)) return ANSWER_KEYS[Number(label) - 1];
+  const latin = label.match(/[A-D]/)?.[0] as AnswerKey | undefined;
+  return latin && ANSWER_KEYS.includes(latin) ? latin : undefined;
+}
+
 function asAnswerKey(value: unknown): AnswerKey | undefined {
-  const normalized = String(value ?? "").trim().toUpperCase().replace(/[^A-D]/g, "");
-  return ANSWER_KEYS.includes(normalized as AnswerKey) ? (normalized as AnswerKey) : undefined;
+  return answerKeyFromLabel(value);
 }
 
 function draftFromObject(value: unknown, index: number): QuestionDraft | undefined {
   if (!value || typeof value !== "object") return undefined;
   const record = value as Record<string, unknown>;
-  const prompt = clean(String(record.question ?? record.prompt ?? record.text ?? ""));
-  const rawOptions = record.options ?? record.choices;
+  const prompt = clean(String(record.question ?? record.questionText ?? record.question_text ?? record.prompt ?? record.text ?? record["প্রশ্ন"] ?? ""));
+  const rawOptions = record.options ?? record.choices ?? record["বিকল্প"];
   const options: Partial<Record<AnswerKey, string>> = {};
 
   if (Array.isArray(rawOptions)) {
@@ -32,11 +46,11 @@ function draftFromObject(value: unknown, index: number): QuestionDraft | undefin
 
   if (!prompt) return undefined;
   return {
-    serial: Number(record.serial ?? record.number ?? record.id ?? index + 1) || index + 1,
+    serial: Number(normalizeDigits(String(record.serial ?? record.number ?? record.questionNo ?? record.question_no ?? record.id ?? index + 1))) || index + 1,
     prompt,
     options,
-    correctOption: asAnswerKey(record.answer ?? record.correctAnswer ?? record.correct_option),
-    explanation: clean(String(record.explanation ?? record.solution ?? "")),
+    correctOption: asAnswerKey(record.answer ?? record.ans ?? record.correctAnswer ?? record.correct_option ?? record["উত্তর"] ?? record["সঠিক উত্তর"]),
+    explanation: clean(String(record.explanation ?? record.solution ?? record["ব্যাখ্যা"] ?? record["সমাধান"] ?? "")),
   };
 }
 
@@ -46,7 +60,7 @@ function parseJson(content: string): ParseResult {
     const collection = Array.isArray(parsed)
       ? parsed
       : parsed && typeof parsed === "object"
-        ? ((parsed as Record<string, unknown>).questions ?? (parsed as Record<string, unknown>).items ?? [])
+        ? ((parsed as Record<string, unknown>).questions ?? (parsed as Record<string, unknown>).items ?? (parsed as Record<string, unknown>).data ?? (parsed as Record<string, unknown>)["প্রশ্নসমূহ"] ?? [])
         : [];
     if (!Array.isArray(collection)) {
       return { sourceType: "json", drafts: [], issues: [{ message: "The JSON needs a question list." }] };
@@ -78,7 +92,7 @@ function htmlToText(content: string) {
 
 function parseText(content: string, sourceType: ImportSourceType): ParseResult {
   const source = sourceType === "html" ? htmlToText(content) : content.replace(/\r/g, "");
-  const header = /(?:^|\n)\s*(?:q(?:uestion)?\s*)?(\d+)\s*[.)：:]\s*/gi;
+  const header = /(?:^|\n)[ \t]*(?:(?:q(?:uestion)?|প্রশ্ন)[ \t]*([0-9০-৯]*)|([0-9০-৯]+))[ \t]*(?:[.)।:：-][ \t]*)/gi;
   const matches = [...source.matchAll(header)];
   if (!matches.length) {
     return { sourceType, drafts: [], issues: [{ message: "No numbered questions were found. Start each question with Q1. or 1." }] };
@@ -89,18 +103,19 @@ function parseText(content: string, sourceType: ImportSourceType): ParseResult {
     const start = (match.index ?? 0) + match[0].length;
     const end = matches[index + 1]?.index ?? source.length;
     const block = source.slice(start, end).trim();
-    const optionPattern = /^[ \t]*([A-D])\s*[.)：:]\s*(.*)$/gim;
+    const optionPattern = /^[ \t]*([A-Da-dকখগঘ1-4])\s*[.)।:：-][ \t]*(.*)$/gim;
     const optionMatches = [...block.matchAll(optionPattern)];
     const firstOption = optionMatches[0]?.index ?? block.length;
     const prompt = clean(block.slice(0, firstOption));
     const options: Partial<Record<AnswerKey, string>> = {};
     optionMatches.forEach((optionMatch) => {
-      const key = optionMatch[1] as AnswerKey;
-      options[key] = clean(optionMatch[2]);
+      const key = answerKeyFromLabel(optionMatch[1]);
+      if (key) options[key] = clean(optionMatch[2]);
     });
-    const answer = block.match(/(?:^|\n)\s*(?:answer|correct answer)\s*[：:]\s*([A-D])/i)?.[1] as AnswerKey | undefined;
-    const explanation = clean(block.match(/(?:^|\n)\s*(?:explanation|solution)\s*[：:]\s*([\s\S]*)$/i)?.[1] ?? "");
-    drafts.push({ serial: Number(match[1]), prompt, options, correctOption: answer, explanation });
+    const answerLabel = block.match(/(?:^|\n)[ \t]*(?:answer|ans|correct answer|উত্তর|সঠিক উত্তর)[ \t]*[：:.-][ \t]*([^\n]+)/i)?.[1];
+    const explanation = clean(block.match(/(?:^|\n)[ \t]*(?:explanation|solution|ব্যাখ্যা|সমাধান)[ \t]*[：:.-][ \t]*([\s\S]*)$/i)?.[1] ?? "");
+    const matchedAnswer = answerKeyFromLabel(answerLabel) ?? ANSWER_KEYS.find((key) => clean(options[key] ?? "").toLocaleLowerCase() === clean(answerLabel ?? "").toLocaleLowerCase());
+    drafts.push({ serial: Number(normalizeDigits(match[1] || match[2] || "")) || index + 1, prompt, options, correctOption: matchedAnswer, explanation });
   });
   return { sourceType, drafts, issues: validateDrafts(drafts) };
 }

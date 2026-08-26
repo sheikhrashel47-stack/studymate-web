@@ -33,6 +33,29 @@ Explanation: ঢাকা বাংলাদেশের রাজধানী�
     expect(result.drafts).toHaveLength(1);
     expect(result.drafts[0].options.B).toBe("Blue");
   });
+
+  it("recognizes common Bangla labels and Bangla serial digits", () => {
+    const result = parseQuestions(`প্রশ্ন ১। বাংলাদেশের রাজধানী কোনটি?
+ক. চট্টগ্রাম
+খ. ঢাকা
+গ. খুলনা
+ঘ. রাজশাহী
+উত্তর: খ
+ব্যাখ্যা: ঢাকা বাংলাদেশের রাজধানী।`);
+    expect(result.issues).toEqual([]);
+    expect(result.drafts[0]).toMatchObject({ serial: 1, correctOption: "B", options: { A: "চট্টগ্রাম", B: "ঢাকা", C: "খুলনা", D: "রাজশাহী" } });
+  });
+
+  it("accepts an unnumbered Q. block and an answer written as option text", () => {
+    const result = parseQuestions(`Q. 8 × 7 = কত?
+A. 54
+B. 56
+C. 64
+D. 48
+Answer: 56`);
+    expect(result.issues).toEqual([]);
+    expect(result.drafts[0]).toMatchObject({ serial: 1, correctOption: "B" });
+  });
 });
 
 describe("progress calculations", () => {
