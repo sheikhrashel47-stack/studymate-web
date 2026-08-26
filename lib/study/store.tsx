@@ -26,6 +26,7 @@ interface StudyContextValue {
   submitActiveExam: (remainingSeconds?: number) => TestResult | undefined;
   discardActiveExam: () => void;
   recordFlashAttempt: (questionId: string, selectedOption: AnswerKey) => boolean;
+  completeFlashTest: (questionIds: string[], answers: Record<string, AnswerKey | undefined>, startedAt: number, remainingSeconds?: number) => TestResult | undefined;
   getSubject: (id: string) => Subject | undefined;
   getChapter: (id: string) => Chapter | undefined;
   getQuestions: (filters?: { subjectId?: string; chapterId?: string }) => Question[];
@@ -193,12 +194,23 @@ export function StudyProvider({ children }: PropsWithChildren) {
     return correct;
   }, [data, updateData]);
 
+  const completeFlashTest = useCallback((questionIds: string[], answers: Record<string, AnswerKey | undefined>, startedAt: number, remainingSeconds?: number) => {
+    const questionMap = new Map(data.questions.map((question) => [question.id, question]));
+    const validIds = questionIds.filter((questionId) => questionMap.has(questionId));
+    if (!validIds.length) return undefined;
+    const correctCount = validIds.filter((questionId) => answers[questionId] === questionMap.get(questionId)?.correctOption).length;
+    const skippedCount = validIds.filter((questionId) => !answers[questionId]).length;
+    const result: TestResult = { id: createId("flash"), mode: "flash", questionIds: validIds, answers, correctCount, wrongCount: validIds.length - correctCount - skippedCount, skippedCount, startedAt, completedAt: Date.now(), timeUsedSeconds: Math.max(0, 20 * 60 - (remainingSeconds ?? 0)), configuration: { questionCount: validIds.length, durationSeconds: 20 * 60 } };
+    updateData((current) => ({ ...current, testHistory: [result, ...current.testHistory].slice(0, 100) }));
+    return result;
+  }, [data.questions, updateData]);
+
   const value = useMemo<StudyContextValue>(() => ({
-    data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt,
+    data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt, completeFlashTest,
     getSubject: (id) => data.subjects.find((subject) => subject.id === id),
     getChapter: (id) => data.chapters.find((chapter) => chapter.id === id),
     getQuestions: (filters) => data.questions.filter((question) => (!filters?.subjectId || question.subjectId === filters.subjectId) && (!filters?.chapterId || question.chapterId === filters.chapterId)),
-  }), [data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt]);
+  }), [data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt, completeFlashTest]);
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;
 }

@@ -12,7 +12,7 @@ const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().p
 
 export default function FlashTestScreen() {
   const { subjectId = "", chapterId = "", count = "20" } = useLocalSearchParams<{ subjectId?: string; chapterId?: string; count?: string }>();
-  const { data, recordFlashAttempt } = useStudy();
+  const { data, recordFlashAttempt, completeFlashTest } = useStudy();
   const [questionIds, setQuestionIds] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<AnswerKey>();
@@ -20,6 +20,8 @@ export default function FlashTestScreen() {
   const [wrongCount, setWrongCount] = useState(0);
   const [remaining, setRemaining] = useState(20 * 60);
   const [starred, setStarred] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, AnswerKey | undefined>>({});
+  const [startedAt] = useState(() => Date.now());
   const insets = useSafeAreaInsets();
 
   useEffect(() => { if (questionIds.length) return; const available = data.questions.filter((question) => (!subjectId || question.subjectId === subjectId) && (!chapterId || question.chapterId === chapterId)); const ids = [...available].sort(() => Math.random() - 0.5).slice(0, Math.max(1, Number(count) || 20)).map((question) => question.id); setQuestionIds(ids); }, [data.questions, subjectId, chapterId, count, questionIds.length]);
@@ -30,9 +32,9 @@ export default function FlashTestScreen() {
   if (!question) return <StudyScreen><AppHeader title="Flash Test" back={() => router.back()} /><EmptyState icon="bolt" title="Add questions first" detail="Import questions to unlock quick practice." action={<PrimaryButton label="Import Questions" icon="file-upload" onPress={() => router.replace("/questions/import")} />} /></StudyScreen>;
 
   const total = correctCount + wrongCount;
-  const choose = (key: AnswerKey) => { if (selected) return; setSelected(key); const correct = recordFlashAttempt(question.id, key); if (correct) setCorrectCount((value) => value + 1); else setWrongCount((value) => value + 1); };
-  const next = () => { if (index >= questions.length - 1) { router.replace({ pathname: "/test/result", params: { mode: "flash", correct: String(correctCount), wrong: String(wrongCount), total: String(total) } }); return; } setIndex((value) => value + 1); setSelected(undefined); };
-  const previous = () => { if (index > 0) { setIndex((value) => value - 1); setSelected(undefined); } };
+  const choose = (key: AnswerKey) => { if (selected) return; const nextAnswers = { ...answers, [question.id]: key }; setAnswers(nextAnswers); setSelected(key); const correct = recordFlashAttempt(question.id, key); if (correct) setCorrectCount((value) => value + 1); else setWrongCount((value) => value + 1); };
+  const next = () => { if (index >= questions.length - 1) { const result = completeFlashTest(questionIds, answers, startedAt, remaining); if (result) router.replace({ pathname: "/test/result", params: { testId: result.id } }); return; } setIndex((value) => value + 1); setSelected(answers[questionIds[index + 1]]); };
+  const previous = () => { if (index > 0) { const previousId = questionIds[index - 1]; setIndex((value) => value - 1); setSelected(answers[previousId]); } };
   const isCorrect = selected === question.correctOption;
   const progress = ((index + 1) / questions.length) * 100;
 

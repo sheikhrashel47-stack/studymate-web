@@ -16,5 +16,6 @@ export default function TabLayout() {
     <Tabs.Screen name="questions" options={{ title: "Questions", tabBarIcon: tabIcon("menu-book") }} />
     <Tabs.Screen name="test" options={{ title: "Test", tabBarIcon: tabIcon("edit-note") }} />
     <Tabs.Screen name="progress" options={{ title: "Progress", tabBarIcon: tabIcon("bar-chart") }} />
+    <Tabs.Screen name="history" options={{ title: "History", tabBarIcon: tabIcon("history") }} />
   </Tabs>;
 }
