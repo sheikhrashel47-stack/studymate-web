@@ -25,3 +25,15 @@ The repaired live test again classified the pasted MCQ as 1 valid question and o
 The persisted subject and chapter were both selectable in the refreshed live Parse Preview, so the import destination is available as an actual on-device/web data choice rather than a placeholder.
 
 The repaired Import Valid Questions action displayed an inline result. Because the same test question had already been saved by the earlier activation, it correctly reported **0 imported**, **1 duplicate skipped**, and **0 invalid skipped**. Opening the live Questions tab then confirmed **1 saved question** under `বাংলাদেশ ও বিশ্বপরিচয়` and `বাংলাদেশ পরিচিতি`. The end-to-end web flow—parse, preview, destination, persistence, duplicate protection, and question-bank visibility—therefore passed.
+
+Phone-sized web-preview validation of the test repair: a one-question Mock Test started successfully. Its Previous/Submit navigation and separate fixed Submit Test control both remained visible beneath the scrollable question content.
+
+The live Mock Test accepted option B, then opened the new inline **Submit this test?** confirmation in the fixed bottom area. Both **Keep working** and **Submit & view result** controls were visible without scrolling.
+
+Selecting **Submit & view result** opened the live Result screen with 100% accuracy, a 1/1 score, and answer review. The Flash Test setup also loaded at phone width with visible subject, chapter, question-count, and Start Flash Test controls.
+
+The live Flash Test started with one question, accepted the correct answer, displayed immediate answer feedback, and showed a fixed **See Result** button at the bottom of the phone-sized preview without requiring a scroll to a hidden control.
+
+The first live completion exposed a separate ordering defect in the Flash result branch, which was corrected. The one-question Flash Test was then reloaded successfully for the final completion check.
+
+After the correction, the reloaded Flash Test accepted the answer, kept **See Result** fixed at the bottom, and opened the Flash Result screen with 100% accuracy, 1 correct, 0 wrong, and visible Practice Again/Back to Test actions. The Flash completion flow now passes on the phone-sized web preview.

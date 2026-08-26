@@ -153,17 +153,14 @@ export function StudyProvider({ children }: PropsWithChildren) {
   }), [updateData]);
 
   const startMockExam = useCallback((configuration: TestConfiguration) => {
-    let exam: ActiveExam | undefined;
-    updateData((current) => {
-      const available = current.questions.filter((question) => (!configuration.subjectId || question.subjectId === configuration.subjectId) && (!configuration.chapterId || question.chapterId === configuration.chapterId));
-      const questionIds = [...available].sort(() => Math.random() - 0.5).slice(0, Math.min(configuration.questionCount, available.length)).map((question) => question.id);
-      if (!questionIds.length) return current;
-      const now = Date.now();
-      exam = { id: createId("exam"), questionIds, answers: {}, currentIndex: 0, remainingSeconds: configuration.durationSeconds, startedAt: now, savedAt: now, configuration: { ...configuration, questionCount: questionIds.length } };
-      return { ...current, activeExam: exam };
-    });
+    const available = data.questions.filter((question) => (!configuration.subjectId || question.subjectId === configuration.subjectId) && (!configuration.chapterId || question.chapterId === configuration.chapterId));
+    const questionIds = [...available].sort(() => Math.random() - 0.5).slice(0, Math.min(configuration.questionCount, available.length)).map((question) => question.id);
+    if (!questionIds.length) return undefined;
+    const now = Date.now();
+    const exam: ActiveExam = { id: createId("exam"), questionIds, answers: {}, currentIndex: 0, remainingSeconds: configuration.durationSeconds, startedAt: now, savedAt: now, configuration: { ...configuration, questionCount: questionIds.length } };
+    updateData(() => ({ ...data, activeExam: exam }));
     return exam;
-  }, [updateData]);
+  }, [data, updateData]);
 
   const updateActiveExam = useCallback((currentIndex: number, answers: Record<string, AnswerKey | undefined>, remainingSeconds?: number) => updateData((current) => {
     if (!current.activeExam) return current;
@@ -171,37 +168,31 @@ export function StudyProvider({ children }: PropsWithChildren) {
   }), [updateData]);
 
   const submitActiveExam = useCallback((remainingSeconds?: number) => {
-    let result: TestResult | undefined;
-    updateData((current) => {
-      const active = current.activeExam;
-      if (!active) return current;
-      const questionMap = new Map(current.questions.map((question) => [question.id, question]));
-      const attempts = active.questionIds.map((questionId) => {
-        const question = questionMap.get(questionId);
-        const selectedOption = active.answers[questionId];
-        return { id: createId("attempt"), questionId, selectedOption, correct: Boolean(question && selectedOption === question.correctOption), mode: "mock" as const, answeredAt: Date.now() };
-      });
-      const correctCount = attempts.filter((attempt) => attempt.correct).length;
-      const skippedCount = attempts.filter((attempt) => !attempt.selectedOption).length;
-      const duration = active.configuration.durationSeconds;
-      const timeUsedSeconds = duration ? Math.max(0, duration - (remainingSeconds ?? 0)) : Math.max(0, Math.round((Date.now() - active.startedAt) / 1000));
-      result = { id: active.id, mode: "mock", questionIds: active.questionIds, answers: active.answers, correctCount, wrongCount: active.questionIds.length - correctCount - skippedCount, skippedCount, startedAt: active.startedAt, completedAt: Date.now(), timeUsedSeconds, configuration: active.configuration };
-      return { ...current, attempts: [...attempts, ...current.attempts].slice(0, 5000), testHistory: [result, ...current.testHistory].slice(0, 100), activeExam: undefined };
+    const active = data.activeExam;
+    if (!active) return undefined;
+    const questionMap = new Map(data.questions.map((question) => [question.id, question]));
+    const attempts = active.questionIds.map((questionId) => {
+      const question = questionMap.get(questionId);
+      const selectedOption = active.answers[questionId];
+      return { id: createId("attempt"), questionId, selectedOption, correct: Boolean(question && selectedOption === question.correctOption), mode: "mock" as const, answeredAt: Date.now() };
     });
+    const correctCount = attempts.filter((attempt) => attempt.correct).length;
+    const skippedCount = attempts.filter((attempt) => !attempt.selectedOption).length;
+    const duration = active.configuration.durationSeconds;
+    const timeUsedSeconds = duration ? Math.max(0, duration - (remainingSeconds ?? 0)) : Math.max(0, Math.round((Date.now() - active.startedAt) / 1000));
+    const result: TestResult = { id: active.id, mode: "mock", questionIds: active.questionIds, answers: active.answers, correctCount, wrongCount: active.questionIds.length - correctCount - skippedCount, skippedCount, startedAt: active.startedAt, completedAt: Date.now(), timeUsedSeconds, configuration: active.configuration };
+    updateData(() => ({ ...data, attempts: [...attempts, ...data.attempts].slice(0, 5000), testHistory: [result, ...data.testHistory].slice(0, 100), activeExam: undefined }));
     return result;
-  }, [updateData]);
+  }, [data, updateData]);
 
   const discardActiveExam = useCallback(() => updateData((current) => current.activeExam ? { ...current, activeExam: undefined } : current), [updateData]);
   const recordFlashAttempt = useCallback((questionId: string, selectedOption: AnswerKey) => {
-    let correct = false;
-    updateData((current) => {
-      const question = current.questions.find((item) => item.id === questionId);
-      if (!question) return current;
-      correct = question.correctOption === selectedOption;
-      return { ...current, attempts: [{ id: createId("attempt"), questionId, selectedOption, correct, mode: "flash" as const, answeredAt: Date.now() }, ...current.attempts].slice(0, 5000) };
-    });
+    const question = data.questions.find((item) => item.id === questionId);
+    if (!question) return false;
+    const correct = question.correctOption === selectedOption;
+    updateData(() => ({ ...data, attempts: [{ id: createId("attempt"), questionId, selectedOption, correct, mode: "flash" as const, answeredAt: Date.now() }, ...data.attempts].slice(0, 5000) }));
     return correct;
-  }, [updateData]);
+  }, [data, updateData]);
 
   const value = useMemo<StudyContextValue>(() => ({
     data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt,
