@@ -37,3 +37,5 @@ The live Flash Test started with one question, accepted the correct answer, disp
 The first live completion exposed a separate ordering defect in the Flash result branch, which was corrected. The one-question Flash Test was then reloaded successfully for the final completion check.
 
 After the correction, the reloaded Flash Test accepted the answer, kept **See Result** fixed at the bottom, and opened the Flash Result screen with 100% accuracy, 1 correct, 0 wrong, and visible Practice Again/Back to Test actions. The Flash completion flow now passes on the phone-sized web preview.
+
+Browser-first responsive validation at 375×812: the StudyMate home screen retained readable cards and bottom navigation; Import Questions retained its visible fixed Parse Questions control; and Flash Test setup retained its subject, chapter, count, and Start Flash Test controls without text clipping or off-screen actions.

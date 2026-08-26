@@ -14,3 +14,5 @@
 - [ ] Reconcile and implement the user-supplied A–Z Class 8 study-app behavior, including the detailed parser, question-bank, test, result, and progress requirements.
 - [x] Verify the complete in-app question import workflow in the web preview before publication.
 - [x] Fix Mock Test submission and result navigation plus Flash Test scrolling and completion controls on mobile screens.
+- [x] Rebuild StudyMate as a responsive web-first experience and fix narrow-screen test options, text wrapping, and fixed action visibility.
+- [x] Deliver StudyMate as a browser-only web app for mobile Chrome use instead of an APK.
