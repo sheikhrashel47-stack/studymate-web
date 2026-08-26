@@ -77,7 +77,7 @@ export const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, padding: 17, shadowColor: colors.ink, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.045, shadowRadius: 12, elevation: 1 },
   button: { minHeight: 50, borderRadius: 15, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   buttonPrimary: { backgroundColor: colors.blue },
-  buttonSecondary: { backgroundColor: colors.softBlue, borderColor: "#CEDBFF", borderWidth: 1 },
+  buttonSecondary: { backgroundColor: colors.softBlue, borderColor: "#C7E4D7", borderWidth: 1 },
   buttonDanger: { backgroundColor: colors.error },
   buttonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", flexShrink: 1, textAlign: "center" },
   buttonTextSecondary: { color: colors.blue },
@@ -96,6 +96,6 @@ export const styles = StyleSheet.create({
   metric: { flex: 1, minWidth: 64 },
   metricValue: { color: colors.ink, fontSize: 22, lineHeight: 27, fontWeight: "800" },
   metricLabel: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: 3 },
-  progressTrack: { height: 8, borderRadius: 99, overflow: "hidden", backgroundColor: "#E9EEF7" },
+  progressTrack: { height: 8, borderRadius: 99, overflow: "hidden", backgroundColor: "#E5EEE9" },
   progressFill: { height: "100%", borderRadius: 99 },
 });
