@@ -26,7 +26,7 @@ interface StudyContextValue {
   submitActiveExam: (remainingSeconds?: number) => TestResult | undefined;
   discardActiveExam: () => void;
   recordFlashAttempt: (questionId: string, selectedOption: AnswerKey) => boolean;
-  completeFlashTest: (questionIds: string[], answers: Record<string, AnswerKey | undefined>, startedAt: number, remainingSeconds?: number) => TestResult | undefined;
+  completeFlashTest: (questionIds: string[], answers: Record<string, AnswerKey | undefined>, startedAt: number, remainingSeconds?: number, durationSeconds?: number) => TestResult | undefined;
   getSubject: (id: string) => Subject | undefined;
   getChapter: (id: string) => Chapter | undefined;
   getQuestions: (filters?: { subjectId?: string; chapterId?: string }) => Question[];
@@ -194,13 +194,13 @@ export function StudyProvider({ children }: PropsWithChildren) {
     return correct;
   }, [data, updateData]);
 
-  const completeFlashTest = useCallback((questionIds: string[], answers: Record<string, AnswerKey | undefined>, startedAt: number, remainingSeconds?: number) => {
+  const completeFlashTest = useCallback((questionIds: string[], answers: Record<string, AnswerKey | undefined>, startedAt: number, remainingSeconds?: number, durationSeconds?: number) => {
     const questionMap = new Map(data.questions.map((question) => [question.id, question]));
     const validIds = questionIds.filter((questionId) => questionMap.has(questionId));
     if (!validIds.length) return undefined;
     const correctCount = validIds.filter((questionId) => answers[questionId] === questionMap.get(questionId)?.correctOption).length;
     const skippedCount = validIds.filter((questionId) => !answers[questionId]).length;
-    const result: TestResult = { id: createId("flash"), mode: "flash", questionIds: validIds, answers, correctCount, wrongCount: validIds.length - correctCount - skippedCount, skippedCount, startedAt, completedAt: Date.now(), timeUsedSeconds: Math.max(0, 20 * 60 - (remainingSeconds ?? 0)), configuration: { questionCount: validIds.length, durationSeconds: 20 * 60 } };
+    const result: TestResult = { id: createId("flash"), mode: "flash", questionIds: validIds, answers, correctCount, wrongCount: validIds.length - correctCount - skippedCount, skippedCount, startedAt, completedAt: Date.now(), timeUsedSeconds: durationSeconds ? Math.max(0, durationSeconds - (remainingSeconds ?? 0)) : Math.max(0, Math.round((Date.now() - startedAt) / 1000)), configuration: { questionCount: validIds.length, durationSeconds }, };
     updateData((current) => ({ ...current, testHistory: [result, ...current.testHistory].slice(0, 100) }));
     return result;
   }, [data.questions, updateData]);
