@@ -18,3 +18,5 @@
 - [x] Deliver StudyMate as a browser-only web app for mobile Chrome use instead of an APK.
 - [x] Back up the StudyMate web-app source to a private GitHub repository for long-term ownership.
 - [x] Change the StudyMate GitHub repository visibility to public and verify public access.
+- [ ] Set up permanent GitHub Pages website hosting for the public StudyMate repository when publication is authorized.
+- [ ] Configure and build a static StudyMate website that is compatible with the public GitHub Pages URL.

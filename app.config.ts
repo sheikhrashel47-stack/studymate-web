@@ -25,6 +25,7 @@ const bundleId =
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
+const isGitHubPagesBuild = process.env.GITHUB_PAGES === "1";
 
 const env = {
   // App branding - update these values directly (do not use env vars)
@@ -111,6 +112,7 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+    ...(isGitHubPagesBuild ? { baseUrl: "/studymate-web" } : {}),
   },
 };
 
