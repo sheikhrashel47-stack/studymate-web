@@ -4,7 +4,20 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, t
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export const colors = {
-  canvas: "#F8FAFC", surface: "#FFFFFF", blue: "#2563EB", softBlue: "#EAF2FF", ink: "#172033", muted: "#5E6A7D", border: "#E5EAF1", success: "#16805C", caution: "#B7791F", error: "#C43A3A",
+  canvas: "#F6F8FC",
+  surface: "#FFFFFF",
+  blue: "#3563E9",
+  blueDark: "#1D357D",
+  softBlue: "#EAF0FF",
+  ink: "#14213D",
+  muted: "#667085",
+  border: "#E5EAF2",
+  coral: "#F1785A",
+  softCoral: "#FFF0EA",
+  success: "#18835A",
+  softSuccess: "#EAF8F1",
+  caution: "#B7791F",
+  error: "#C43A3A",
 };
 
 export function StudyScreen({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
@@ -44,16 +57,45 @@ export function LoadingState() { return <View style={styles.loading}><ActivityIn
 
 export function Metric({ label, value }: { label: string; value: string | number }) { return <View style={styles.metric}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>; }
 
+export function IconBadge({ icon, color = colors.blue, background = colors.softBlue, size = 46 }: { icon: keyof typeof MaterialIcons.glyphMap; color?: string; background?: string; size?: number }) {
+  return <View style={{ width: size, height: size, borderRadius: Math.round(size * 0.32), alignItems: "center", justifyContent: "center", backgroundColor: background }}><MaterialIcons name={icon} size={Math.round(size * 0.48)} color={color} /></View>;
+}
+
+export function ProgressBar({ value, color = colors.blue }: { value: number; color?: string }) {
+  return <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, value))}%`, backgroundColor: color }]} /></View>;
+}
+
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  header: { backgroundColor: colors.canvas, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 12 },
-  headerRow: { minHeight: 40, flexDirection: "row", alignItems: "center" },
-  headerCopy: { flex: 1, flexShrink: 1 }, headerTitle: { color: colors.ink, fontSize: 24, lineHeight: 31, fontWeight: "800", flexShrink: 1 }, headerSubtitle: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 1, flexShrink: 1 },
-  headerRight: { marginLeft: 12 }, iconButton: { height: 42, width: 42, marginLeft: -10, marginRight: 6, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 16, shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.035, shadowRadius: 8, elevation: 1 },
-  button: { minHeight: 48, borderRadius: 14, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, buttonPrimary: { backgroundColor: colors.blue }, buttonSecondary: { backgroundColor: colors.softBlue, borderColor: "#C9DBFF", borderWidth: 1 }, buttonDanger: { backgroundColor: colors.error }, buttonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", flexShrink: 1, textAlign: "center" }, buttonTextSecondary: { color: colors.blue }, buttonDisabled: { opacity: 0.45 }, buttonPressed: { opacity: 0.9, transform: [{ scale: 0.975 }] }, pressed: { opacity: 0.68 },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }, sectionTitle: { color: colors.ink, fontSize: 17, lineHeight: 23, fontWeight: "800" },
-  emptyState: { alignItems: "center", justifyContent: "center", paddingHorizontal: 28, paddingVertical: 44 }, emptyIcon: { width: 58, height: 58, borderRadius: 18, justifyContent: "center", alignItems: "center", backgroundColor: colors.softBlue, marginBottom: 16 }, emptyTitle: { color: colors.ink, fontSize: 18, lineHeight: 24, fontWeight: "800", textAlign: "center" }, emptyDetail: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 7, maxWidth: 290 }, emptyAction: { marginTop: 20, width: "100%" },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }, loadingText: { color: colors.muted, fontSize: 14 },
-  metric: { flex: 1, minWidth: 70 }, metricValue: { color: colors.ink, fontSize: 21, lineHeight: 27, fontWeight: "800" }, metricLabel: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: 2 },
+  header: { backgroundColor: colors.canvas, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14 },
+  headerRow: { minHeight: 44, flexDirection: "row", alignItems: "center" },
+  headerCopy: { flex: 1, flexShrink: 1 },
+  headerTitle: { color: colors.ink, fontSize: 25, lineHeight: 31, fontWeight: "800", letterSpacing: -0.4 },
+  headerSubtitle: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 2, flexShrink: 1 },
+  headerRight: { marginLeft: 12 },
+  iconButton: { height: 42, width: 42, marginLeft: -10, marginRight: 6, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, padding: 17, shadowColor: colors.ink, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.045, shadowRadius: 12, elevation: 1 },
+  button: { minHeight: 50, borderRadius: 15, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  buttonPrimary: { backgroundColor: colors.blue },
+  buttonSecondary: { backgroundColor: colors.softBlue, borderColor: "#CEDBFF", borderWidth: 1 },
+  buttonDanger: { backgroundColor: colors.error },
+  buttonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", flexShrink: 1, textAlign: "center" },
+  buttonTextSecondary: { color: colors.blue },
+  buttonDisabled: { opacity: 0.45 },
+  buttonPressed: { opacity: 0.9, transform: [{ scale: 0.975 }] },
+  pressed: { opacity: 0.68 },
+  sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  sectionTitle: { color: colors.ink, fontSize: 17, lineHeight: 23, fontWeight: "800" },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingVertical: 54 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 22, justifyContent: "center", alignItems: "center", backgroundColor: colors.softBlue, marginBottom: 17 },
+  emptyTitle: { color: colors.ink, fontSize: 19, lineHeight: 25, fontWeight: "800", textAlign: "center" },
+  emptyDetail: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: "center", marginTop: 7, maxWidth: 300 },
+  emptyAction: { marginTop: 21, width: "100%" },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingText: { color: colors.muted, fontSize: 14 },
+  metric: { flex: 1, minWidth: 64 },
+  metricValue: { color: colors.ink, fontSize: 22, lineHeight: 27, fontWeight: "800" },
+  metricLabel: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: "600", marginTop: 3 },
+  progressTrack: { height: 8, borderRadius: 99, overflow: "hidden", backgroundColor: "#E9EEF7" },
+  progressFill: { height: "100%", borderRadius: 99 },
 });

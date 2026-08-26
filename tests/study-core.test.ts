@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { calculateProgress, chapterAccuracy, subjectAccuracy } from "../lib/study/analytics";
-import { isCompleteDraft, parseQuestions } from "../lib/study/parser";
+import { isCompleteDraft, parseQuestions, questionSignature } from "../lib/study/parser";
 import type { StudyData } from "../lib/study/types";
 
 describe("question import parser", () => {
@@ -88,6 +88,12 @@ D. চার`);
     expect(result.issues).toContainEqual(expect.objectContaining({ questionNumber: 1, severity: "warning" }));
     expect(result.issues).toContainEqual(expect.objectContaining({ questionNumber: 1, severity: "error", message: "Correct answer not found." }));
     expect(result.issues).toContainEqual(expect.objectContaining({ questionNumber: 2, severity: "error", message: "Correct answer not found." }));
+  });
+
+  it("normalizes punctuation and Bangla digits for duplicate detection", () => {
+    const first = questionSignature("প্রশ্ন ১। বাংলাদেশের রাজধানী কোনটি?", { A: "চট্টগ্রাম", B: "ঢাকা", C: "খুলনা", D: "রাজশাহী" });
+    const second = questionSignature("Q1: বাংলাদেশের রাজধানী কোনটি", { A: "চট্টগ্রাম", B: "ঢাকা", C: "খুলনা", D: "রাজশাহী" });
+    expect(first).toBe(second);
   });
 
   it("handles a large deterministic paste without losing question boundaries", () => {

@@ -1,12 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
-import { isCompleteDraft } from "./parser";
+import { isCompleteDraft, questionSignature } from "./parser";
 import { loadStudyData, persistStudyData } from "./database";
 import { EMPTY_STUDY_DATA, type ActiveExam, type AnswerKey, type Chapter, type Question, type QuestionDraft, type StudyData, type Subject, type TestConfiguration, type TestResult } from "./types";
 
 const createId = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 const normalized = (value: string) => value.trim().toLocaleLowerCase();
-const questionSignature = (prompt: string, options: Record<string, string> | Partial<Record<AnswerKey, string>>) => `${normalized(prompt).replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, "")}|${Object.entries(options).filter(([, value]) => Boolean(value)).map(([key, value]) => `${key}:${normalized(value ?? "").replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, "")}`).join("|")}`;
 
 type ImportSummary = { added: number; skipped: number; duplicates: number; invalid: number; subjectId: string; chapterId: string };
 

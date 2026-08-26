@@ -6,6 +6,15 @@ const BANGLA_OPTION_KEYS: Record<string, AnswerKey> = { "ক": "A", "খ": "B", 
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
 const normalizeDigits = (value: string) => value.replace(/[০-৯]/g, (digit) => BANGLA_DIGITS[digit]);
 const comparable = (value: string) => clean(normalizeDigits(value).toLocaleLowerCase().replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, " "));
+const comparablePrompt = (value: string) => {
+  const normalizedValue = normalizeDigits(value).toLocaleLowerCase().trim();
+  const withoutQuestionLabel = normalizedValue.replace(/^\s*(?:(?:question|q|প্রশ্ন)\s*\d+|\d+)\s*[.)।:：-]?\s*/i, "");
+  return clean(withoutQuestionLabel.replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, " "));
+};
+
+export function questionSignature(prompt: string, options: Partial<Record<AnswerKey, string>>) {
+  return [comparablePrompt(prompt), ...ANSWER_KEYS.map((key) => `${key}:${comparable(options[key] ?? "")}`)].join("|");
+}
 
 function answerKeyFromLabel(value: unknown): AnswerKey | undefined {
   const label = normalizeDigits(String(value ?? "")).trim().toUpperCase();
