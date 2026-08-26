@@ -1,6 +1,7 @@
-export type AnswerKey = "A" | "B" | "C" | "D";
+export type AnswerKey = "A" | "B" | "C" | "D" | "E" | "F";
 export type ImportSourceType = "text" | "json" | "html";
 export type PracticeMode = "mock" | "flash";
+export type ParseIssueSeverity = "warning" | "error";
 
 export interface Subject {
   id: string;
@@ -21,7 +22,7 @@ export interface Question {
   chapterId: string;
   serial: number;
   prompt: string;
-  options: Record<AnswerKey, string>;
+  options: Record<string, string>;
   correctOption: AnswerKey;
   explanation: string;
   createdAt: number;
@@ -38,6 +39,7 @@ export interface QuestionDraft {
 export interface ParseIssue {
   questionNumber?: number;
   message: string;
+  severity: ParseIssueSeverity;
 }
 
 export interface ParseResult {
@@ -106,4 +108,5 @@ export const EMPTY_STUDY_DATA: StudyData = {
   testHistory: [],
 };
 
-export const ANSWER_KEYS: AnswerKey[] = ["A", "B", "C", "D"];
+export const ANSWER_KEYS: AnswerKey[] = ["A", "B", "C", "D", "E", "F"];
+export const REQUIRED_ANSWER_KEYS: AnswerKey[] = ["A", "B", "C", "D"];

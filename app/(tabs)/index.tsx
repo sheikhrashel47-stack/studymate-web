@@ -35,7 +35,7 @@ export default function HomeScreen() {
       <View style={styles.quickGrid}>
         <QuickAction icon="menu-book" label="Questions" detail="Browse & learn" onPress={() => router.push("/(tabs)/questions")} />
         <QuickAction icon="edit-note" label="Mock Test" detail="Practice calmly" onPress={() => router.push("/test/setup")} />
-        <QuickAction icon="bolt" label="Flash Test" detail="Quick practice" onPress={() => router.push("/test/flash")} />
+        <QuickAction icon="bolt" label="Flash Test" detail="Quick practice" onPress={() => router.push("/test/flash-setup")} />
         <QuickAction icon="bar-chart" label="Progress" detail="See your growth" onPress={() => router.push("/(tabs)/progress")} />
       </View>
       <SectionTitle>Recent test</SectionTitle>

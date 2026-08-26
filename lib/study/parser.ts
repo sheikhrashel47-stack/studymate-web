@@ -1,24 +1,30 @@
-import { ANSWER_KEYS, type AnswerKey, type ImportSourceType, type ParseIssue, type ParseResult, type QuestionDraft } from "./types";
-
-const clean = (value: string) => value.replace(/\s+/g, " ").trim();
+import { ANSWER_KEYS, REQUIRED_ANSWER_KEYS, type AnswerKey, type ImportSourceType, type ParseIssue, type ParseResult, type QuestionDraft } from "./types";
 
 const BANGLA_DIGITS: Record<string, string> = { "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4", "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9" };
+const BANGLA_OPTION_KEYS: Record<string, AnswerKey> = { "ক": "A", "খ": "B", "গ": "C", "ঘ": "D", "ঙ": "E", "চ": "F" };
 
-function normalizeDigits(value: string) {
-  return value.replace(/[০-৯]/g, (digit) => BANGLA_DIGITS[digit]);
-}
+const clean = (value: string) => value.replace(/\s+/g, " ").trim();
+const normalizeDigits = (value: string) => value.replace(/[০-৯]/g, (digit) => BANGLA_DIGITS[digit]);
+const comparable = (value: string) => clean(normalizeDigits(value).toLocaleLowerCase().replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, " "));
 
 function answerKeyFromLabel(value: unknown): AnswerKey | undefined {
   const label = normalizeDigits(String(value ?? "")).trim().toUpperCase();
-  const banglaOptions: Record<string, AnswerKey> = { "ক": "A", "খ": "B", "গ": "C", "ঘ": "D" };
-  if (banglaOptions[label]) return banglaOptions[label];
-  if (/^[1-4]$/.test(label)) return ANSWER_KEYS[Number(label) - 1];
-  const latin = label.match(/[A-D]/)?.[0] as AnswerKey | undefined;
+  if (BANGLA_OPTION_KEYS[label]) return BANGLA_OPTION_KEYS[label];
+  if (/^[1-6]$/.test(label)) return ANSWER_KEYS[Number(label) - 1];
+  const latin = label.match(/[A-F]/)?.[0] as AnswerKey | undefined;
   return latin && ANSWER_KEYS.includes(latin) ? latin : undefined;
 }
 
-function asAnswerKey(value: unknown): AnswerKey | undefined {
+function parseOptionLabel(value: string) {
   return answerKeyFromLabel(value);
+}
+
+function findAnswerKey(answerValue: string | undefined, options: Partial<Record<AnswerKey, string>>) {
+  const label = answerKeyFromLabel(answerValue);
+  if (label) return label;
+  const target = comparable(answerValue ?? "");
+  if (!target) return undefined;
+  return ANSWER_KEYS.find((key) => comparable(options[key] ?? "") === target);
 }
 
 function draftFromObject(value: unknown, index: number): QuestionDraft | undefined {
@@ -27,95 +33,84 @@ function draftFromObject(value: unknown, index: number): QuestionDraft | undefin
   const prompt = clean(String(record.question ?? record.questionText ?? record.question_text ?? record.prompt ?? record.text ?? record["প্রশ্ন"] ?? ""));
   const rawOptions = record.options ?? record.choices ?? record["বিকল্প"];
   const options: Partial<Record<AnswerKey, string>> = {};
-
   if (Array.isArray(rawOptions)) {
-    rawOptions.slice(0, 4).forEach((option, optionIndex) => {
-      options[ANSWER_KEYS[optionIndex]] = clean(String(option));
-    });
+    rawOptions.slice(0, 6).forEach((option, optionIndex) => { options[ANSWER_KEYS[optionIndex]] = clean(String(option)); });
   } else if (rawOptions && typeof rawOptions === "object") {
-    Object.entries(rawOptions as Record<string, unknown>).forEach(([key, option]) => {
-      const answerKey = asAnswerKey(key);
-      if (answerKey) options[answerKey] = clean(String(option));
-    });
+    Object.entries(rawOptions as Record<string, unknown>).forEach(([key, option]) => { const answerKey = answerKeyFromLabel(key); if (answerKey) options[answerKey] = clean(String(option)); });
   } else {
-    ANSWER_KEYS.forEach((key) => {
-      const option = record[key] ?? record[key.toLowerCase()];
-      if (option) options[key] = clean(String(option));
-    });
+    ANSWER_KEYS.forEach((key) => { const option = record[key] ?? record[key.toLowerCase()]; if (option) options[key] = clean(String(option)); });
   }
-
   if (!prompt) return undefined;
+  const rawAnswer = String(record.answer ?? record.ans ?? record.correct ?? record.correctAnswer ?? record.correct_option ?? record["উত্তর"] ?? record["সঠিক উত্তর"] ?? "");
   return {
     serial: Number(normalizeDigits(String(record.serial ?? record.number ?? record.questionNo ?? record.question_no ?? record.id ?? index + 1))) || index + 1,
     prompt,
     options,
-    correctOption: asAnswerKey(record.answer ?? record.ans ?? record.correctAnswer ?? record.correct_option ?? record["উত্তর"] ?? record["সঠিক উত্তর"]),
-    explanation: clean(String(record.explanation ?? record.solution ?? record["ব্যাখ্যা"] ?? record["সমাধান"] ?? "")),
+    correctOption: findAnswerKey(rawAnswer, options),
+    explanation: clean(String(record.explanation ?? record.explain ?? record.reason ?? record.solution ?? record["ব্যাখ্যা"] ?? record["কারণ"] ?? record["সমাধান"] ?? "")) || "Explanation unavailable",
   };
 }
 
 function parseJson(content: string): ParseResult {
   try {
     const parsed = JSON.parse(content) as unknown;
-    const collection = Array.isArray(parsed)
-      ? parsed
-      : parsed && typeof parsed === "object"
-        ? ((parsed as Record<string, unknown>).questions ?? (parsed as Record<string, unknown>).items ?? (parsed as Record<string, unknown>).data ?? (parsed as Record<string, unknown>)["প্রশ্নসমূহ"] ?? [])
-        : [];
-    if (!Array.isArray(collection)) {
-      return { sourceType: "json", drafts: [], issues: [{ message: "The JSON needs a question list." }] };
-    }
+    const collection = Array.isArray(parsed) ? parsed : parsed && typeof parsed === "object" ? ((parsed as Record<string, unknown>).questions ?? (parsed as Record<string, unknown>).items ?? (parsed as Record<string, unknown>).data ?? (parsed as Record<string, unknown>)["প্রশ্নসমূহ"] ?? []) : [];
+    if (!Array.isArray(collection)) return { sourceType: "json", drafts: [], issues: [{ severity: "error", message: "The JSON needs a question list." }] };
     const drafts: QuestionDraft[] = [];
     const issues: ParseIssue[] = [];
-    collection.forEach((item, index) => {
-      const draft = draftFromObject(item, index);
-      if (draft) drafts.push(draft);
-      else issues.push({ questionNumber: index + 1, message: "This item does not include a readable question." });
-    });
+    collection.forEach((item, index) => { const draft = draftFromObject(item, index); if (draft) drafts.push(draft); else issues.push({ questionNumber: index + 1, severity: "error", message: "This item does not include a readable question." }); });
     return { sourceType: "json", drafts, issues: [...issues, ...validateDrafts(drafts)] };
   } catch {
-    return { sourceType: "json", drafts: [], issues: [{ message: "This JSON could not be read. Check the format and try again." }] };
+    return { sourceType: "json", drafts: [], issues: [{ severity: "error", message: "This JSON could not be read. Check the format and try again." }] };
   }
 }
 
 function htmlToText(content: string) {
-  return content
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h[1-6])\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\r/g, "");
+  return content.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6]|tr)\s*>/gi, "\n").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/\r/g, "");
+}
+
+function parseQuestionBlock(block: string, serial: number): QuestionDraft {
+  const lines = block.replace(/\r/g, "").split("\n");
+  const promptLines: string[] = [];
+  const explanationLines: string[] = [];
+  const options: Partial<Record<AnswerKey, string>> = {};
+  let optionKey: AnswerKey | undefined;
+  let answerValue: string | undefined;
+  let isExplanation = false;
+  const optionLine = /^[ \t]*([A-Fa-fকখগঘঙচ1-6])[ \t]*[.)।:：-][ \t]*(.*)$/;
+  const answerLine = /^[ \t]*(?:answer|ans|correct answer|correct|উত্তর|সঠিক উত্তর)[ \t]*[：:.-][ \t]*(.+)$/i;
+  const explanationLine = /^[ \t]*(?:explanation|explain|solution|reason|ব্যাখ্যা|কারণ|সমাধান)[ \t]*[：:.-][ \t]*(.*)$/i;
+
+  lines.forEach((line) => {
+    const option = line.match(optionLine);
+    const answer = line.match(answerLine);
+    const explanation = line.match(explanationLine);
+    if (option) {
+      optionKey = parseOptionLabel(option[1]);
+      if (optionKey) options[optionKey] = clean(option[2]);
+      isExplanation = false;
+      return;
+    }
+    if (answer) { answerValue = clean(answer[1]); optionKey = undefined; isExplanation = false; return; }
+    if (explanation) { explanationLines.push(explanation[1]); optionKey = undefined; isExplanation = true; return; }
+    if (optionKey) { options[optionKey] = clean(`${options[optionKey] ?? ""} ${line}`); return; }
+    if (isExplanation) { explanationLines.push(line); return; }
+    if (line.trim()) promptLines.push(line);
+  });
+
+  return { serial, prompt: clean(promptLines.join(" ")), options, correctOption: findAnswerKey(answerValue, options), explanation: clean(explanationLines.join(" ")) || "Explanation unavailable" };
 }
 
 function parseText(content: string, sourceType: ImportSourceType): ParseResult {
   const source = sourceType === "html" ? htmlToText(content) : content.replace(/\r/g, "");
-  const header = /(?:^|\n)[ \t]*(?:(?:q(?:uestion)?|প্রশ্ন)[ \t]*([0-9০-৯]*)|([0-9০-৯]+))[ \t]*(?:[.)।:：-][ \t]*)/gi;
+  const header = /(?:^|\n)[ \t]*(?:(?:q(?:uestion)?|প্রশ্ন)[ \t]*([0-9০-৯]*)|([0-9০-৯]+))[ \t]*[.)।:：-][ \t]*/gi;
   const matches = [...source.matchAll(header)];
-  if (!matches.length) {
-    return { sourceType, drafts: [], issues: [{ message: "No numbered questions were found. Start each question with Q1. or 1." }] };
-  }
-
-  const drafts: QuestionDraft[] = [];
-  matches.forEach((match, index) => {
+  if (!matches.length) return { sourceType, drafts: [], issues: [{ severity: "error", message: "No numbered questions were found. Start with Q1., 1., or প্রশ্ন ১।" }] };
+  const drafts = matches.map((match, index) => {
     const start = (match.index ?? 0) + match[0].length;
     const end = matches[index + 1]?.index ?? source.length;
-    const block = source.slice(start, end).trim();
-    const optionPattern = /^[ \t]*([A-Da-dকখগঘ1-4])\s*[.)।:：-][ \t]*(.*)$/gim;
-    const optionMatches = [...block.matchAll(optionPattern)];
-    const firstOption = optionMatches[0]?.index ?? block.length;
-    const prompt = clean(block.slice(0, firstOption));
-    const options: Partial<Record<AnswerKey, string>> = {};
-    optionMatches.forEach((optionMatch) => {
-      const key = answerKeyFromLabel(optionMatch[1]);
-      if (key) options[key] = clean(optionMatch[2]);
-    });
-    const answerLabel = block.match(/(?:^|\n)[ \t]*(?:answer|ans|correct answer|উত্তর|সঠিক উত্তর)[ \t]*[：:.-][ \t]*([^\n]+)/i)?.[1];
-    const explanation = clean(block.match(/(?:^|\n)[ \t]*(?:explanation|solution|ব্যাখ্যা|সমাধান)[ \t]*[：:.-][ \t]*([\s\S]*)$/i)?.[1] ?? "");
-    const matchedAnswer = answerKeyFromLabel(answerLabel) ?? ANSWER_KEYS.find((key) => clean(options[key] ?? "").toLocaleLowerCase() === clean(answerLabel ?? "").toLocaleLowerCase());
-    drafts.push({ serial: Number(normalizeDigits(match[1] || match[2] || "")) || index + 1, prompt, options, correctOption: matchedAnswer, explanation });
+    const serial = Number(normalizeDigits(match[1] || match[2] || "")) || index + 1;
+    return parseQuestionBlock(source.slice(start, end).trim(), serial);
   });
   return { sourceType, drafts, issues: validateDrafts(drafts) };
 }
@@ -123,9 +118,12 @@ function parseText(content: string, sourceType: ImportSourceType): ParseResult {
 function validateDrafts(drafts: QuestionDraft[]): ParseIssue[] {
   const issues: ParseIssue[] = [];
   drafts.forEach((draft) => {
-    if (!draft.prompt) issues.push({ questionNumber: draft.serial, message: "Question text is missing." });
-    if (ANSWER_KEYS.some((key) => !draft.options[key])) issues.push({ questionNumber: draft.serial, message: "All four options A–D are needed." });
-    if (!draft.correctOption) issues.push({ questionNumber: draft.serial, message: "The correct answer is missing." });
+    const optionCount = ANSWER_KEYS.filter((key) => Boolean(draft.options[key])).length;
+    if (!draft.prompt) issues.push({ questionNumber: draft.serial, severity: "error", message: "Question text is missing." });
+    if (optionCount < 4) issues.push({ questionNumber: draft.serial, severity: "error", message: `This question has only ${optionCount} options. Four are required.` });
+    if (optionCount > 4) issues.push({ questionNumber: draft.serial, severity: "warning", message: `This question has ${optionCount} options. Review before importing.` });
+    if (!draft.correctOption) issues.push({ questionNumber: draft.serial, severity: "error", message: "Correct answer not found." });
+    if (draft.correctOption && !draft.options[draft.correctOption]) issues.push({ questionNumber: draft.serial, severity: "error", message: `Invalid answer: ${draft.correctOption}.` });
   });
   return issues;
 }
@@ -143,5 +141,5 @@ export function parseQuestions(content: string): ParseResult {
 }
 
 export function isCompleteDraft(draft: QuestionDraft): draft is QuestionDraft & { options: Record<AnswerKey, string>; correctOption: AnswerKey } {
-  return Boolean(draft.prompt && draft.correctOption && ANSWER_KEYS.every((key) => Boolean(draft.options[key])));
+  return Boolean(draft.prompt && draft.correctOption && draft.options[draft.correctOption] && REQUIRED_ANSWER_KEYS.every((key) => Boolean(draft.options[key])));
 }

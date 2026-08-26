@@ -6,8 +6,9 @@ import { EMPTY_STUDY_DATA, type ActiveExam, type AnswerKey, type Chapter, type Q
 
 const createId = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 const normalized = (value: string) => value.trim().toLocaleLowerCase();
+const questionSignature = (prompt: string, options: Record<string, string> | Partial<Record<AnswerKey, string>>) => `${normalized(prompt).replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, "")}|${Object.entries(options).filter(([, value]) => Boolean(value)).map(([key, value]) => `${key}:${normalized(value ?? "").replace(/[\s.,;:!?()[\]{}'"“”‘’।]/g, "")}`).join("|")}`;
 
-type ImportSummary = { added: number; skipped: number; subjectId: string; chapterId: string };
+type ImportSummary = { added: number; skipped: number; duplicates: number; invalid: number; subjectId: string; chapterId: string };
 
 interface StudyContextValue {
   data: StudyData;
@@ -15,6 +16,8 @@ interface StudyContextValue {
   storageError?: string;
   addSubject: (name: string) => string | undefined;
   addChapter: (subjectId: string, name: string) => string | undefined;
+  renameSubject: (id: string, name: string) => boolean;
+  renameChapter: (id: string, name: string) => boolean;
   importQuestions: (subjectName: string, chapterName: string, drafts: QuestionDraft[]) => ImportSummary | undefined;
   deleteQuestion: (id: string) => void;
   deleteSubject: (id: string) => void;
@@ -74,6 +77,34 @@ export function StudyProvider({ children }: PropsWithChildren) {
     return createdId;
   }, [updateData]);
 
+  const renameSubject = useCallback((id: string, name: string) => {
+    const cleaned = name.trim();
+    if (!cleaned) return false;
+    let changed = false;
+    updateData((current) => {
+      const subject = current.subjects.find((item) => item.id === id);
+      const duplicate = current.subjects.find((item) => item.id !== id && normalized(item.name) === normalized(cleaned));
+      if (!subject || duplicate) return current;
+      changed = true;
+      return { ...current, subjects: current.subjects.map((item) => item.id === id ? { ...item, name: cleaned } : item) };
+    });
+    return changed;
+  }, [updateData]);
+
+  const renameChapter = useCallback((id: string, name: string) => {
+    const cleaned = name.trim();
+    if (!cleaned) return false;
+    let changed = false;
+    updateData((current) => {
+      const chapter = current.chapters.find((item) => item.id === id);
+      const duplicate = chapter && current.chapters.find((item) => item.id !== id && item.subjectId === chapter.subjectId && normalized(item.name) === normalized(cleaned));
+      if (!chapter || duplicate) return current;
+      changed = true;
+      return { ...current, chapters: current.chapters.map((item) => item.id === id ? { ...item, name: cleaned } : item) };
+    });
+    return changed;
+  }, [updateData]);
+
   const importQuestions = useCallback((subjectName: string, chapterName: string, drafts: QuestionDraft[]) => {
     const subjectLabel = subjectName.trim();
     const chapterLabel = chapterName.trim();
@@ -86,11 +117,20 @@ export function StudyProvider({ children }: PropsWithChildren) {
       const subjectId = existingSubject?.id ?? createId("subject");
       const existingChapter = current.chapters.find((chapter) => chapter.subjectId === subjectId && normalized(chapter.name) === normalized(chapterLabel));
       const chapterId = existingChapter?.id ?? createId("chapter");
-      const newQuestions: Question[] = completeDrafts.map((draft) => ({
+      const knownSignatures = new Set(current.questions.map((question) => questionSignature(question.prompt, question.options)));
+      const batchSignatures = new Set<string>();
+      const uniqueDrafts = completeDrafts.filter((draft) => {
+        const signature = questionSignature(draft.prompt, draft.options);
+        if (knownSignatures.has(signature) || batchSignatures.has(signature)) return false;
+        batchSignatures.add(signature);
+        return true;
+      });
+      const newQuestions: Question[] = uniqueDrafts.map((draft) => ({
         id: createId("question"), subjectId, chapterId, serial: draft.serial, prompt: draft.prompt,
-        options: draft.options, correctOption: draft.correctOption, explanation: draft.explanation ?? "", createdAt: now,
+        options: draft.options, correctOption: draft.correctOption, explanation: draft.explanation ?? "Explanation unavailable", createdAt: now,
       }));
-      summary = { added: newQuestions.length, skipped: drafts.length - newQuestions.length, subjectId, chapterId };
+      summary = { added: newQuestions.length, skipped: drafts.length - newQuestions.length, duplicates: completeDrafts.length - uniqueDrafts.length, invalid: drafts.length - completeDrafts.length, subjectId: newQuestions.length ? subjectId : existingSubject?.id ?? "", chapterId: newQuestions.length ? chapterId : existingChapter?.id ?? "" };
+      if (!newQuestions.length) return current;
       return {
         ...current,
         subjects: existingSubject ? current.subjects : [...current.subjects, { id: subjectId, name: subjectLabel, createdAt: now }],
@@ -164,11 +204,11 @@ export function StudyProvider({ children }: PropsWithChildren) {
   }, [updateData]);
 
   const value = useMemo<StudyContextValue>(() => ({
-    data, isReady, storageError, addSubject, addChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt,
+    data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt,
     getSubject: (id) => data.subjects.find((subject) => subject.id === id),
     getChapter: (id) => data.chapters.find((chapter) => chapter.id === id),
     getQuestions: (filters) => data.questions.filter((question) => (!filters?.subjectId || question.subjectId === filters.subjectId) && (!filters?.chapterId || question.chapterId === filters.chapterId)),
-  }), [data, isReady, storageError, addSubject, addChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt]);
+  }), [data, isReady, storageError, addSubject, addChapter, renameSubject, renameChapter, importQuestions, deleteQuestion, deleteSubject, deleteChapter, startMockExam, updateActiveExam, submitActiveExam, discardActiveExam, recordFlashAttempt]);
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;
 }

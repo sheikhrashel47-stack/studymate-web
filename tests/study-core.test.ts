@@ -56,6 +56,51 @@ Answer: 56`);
     expect(result.issues).toEqual([]);
     expect(result.drafts[0]).toMatchObject({ serial: 1, correctOption: "B" });
   });
+
+  it("keeps multiline question and option text intact", () => {
+    const result = parseQuestions(`Q1. নিচের কোনটি বাংলাদেশের
+জাতীয় ফুল?
+A. গোলাপ
+B. শাপলা ফুল
+যা পানিতে জন্মায়
+C. জবা
+D. বেলি
+Answer: B
+Explanation: শাপলা বাংলাদেশের জাতীয় ফুল।`);
+    expect(result.issues).toEqual([]);
+    expect(result.drafts[0].prompt).toBe("নিচের কোনটি বাংলাদেশের জাতীয় ফুল?");
+    expect(result.drafts[0].options.B).toBe("শাপলা ফুল যা পানিতে জন্মায়");
+  });
+
+  it("classifies missing answers as errors and extra options as review warnings", () => {
+    const result = parseQuestions(`Q1. কোনটি সঠিক?
+A. এক
+B. দুই
+C. তিন
+D. চার
+E. পাঁচ
+
+Q2. কোনটি ভুল?
+A. এক
+B. দুই
+C. তিন
+D. চার`);
+    expect(result.issues).toContainEqual(expect.objectContaining({ questionNumber: 1, severity: "warning" }));
+    expect(result.issues).toContainEqual(expect.objectContaining({ questionNumber: 1, severity: "error", message: "Correct answer not found." }));
+    expect(result.issues).toContainEqual(expect.objectContaining({ questionNumber: 2, severity: "error", message: "Correct answer not found." }));
+  });
+
+  it("handles a large deterministic paste without losing question boundaries", () => {
+    const source = Array.from({ length: 120 }, (_, index) => `Q${index + 1}. প্রশ্ন ${index + 1}?
+A. a
+B. b
+C. c
+D. d
+Answer: A`).join("\n\n");
+    const result = parseQuestions(source);
+    expect(result.drafts).toHaveLength(120);
+    expect(result.drafts.every(isCompleteDraft)).toBe(true);
+  });
 });
 
 describe("progress calculations", () => {
