@@ -1,11 +1,11 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppHeader, Card, EmptyState, PrimaryButton, StudyScreen, colors } from "@/components/study/ui";
-import { type AnswerKey } from "@/lib/study/types";
+import { AppHeader, Card, EmptyState, PrimaryButton, ProgressBar, StudyScreen, colors } from "@/components/study/ui";
+import { type AnswerKey, type Question } from "@/lib/study/types";
 import { useStudy } from "@/lib/study/store";
 
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
@@ -15,9 +15,13 @@ export default function ExamScreen() {
   const active = data.activeExam;
   const [remaining, setRemaining] = useState(active?.remainingSeconds);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [starred, setStarred] = useState<Record<string, boolean>>({});
+  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const insets = useSafeAreaInsets();
-  const questions = useMemo(() => active ? active.questionIds.map((id) => getQuestions().find((question) => question.id === id)).filter(Boolean) : [], [active, getQuestions]);
-  const question = questions[active?.currentIndex ?? 0];
+  const questions = useMemo(() => active ? active.questionIds.map((id) => getQuestions().find((question) => question.id === id)).filter((question): question is Question => Boolean(question)) : [], [active?.questionIds, getQuestions]);
+  const answered = active ? Object.keys(active.answers).length : 0;
+  const submit = (timedOut = false) => { const result = submitActiveExam(remaining); if (result) router.replace({ pathname: "/test/result", params: { testId: result.id, timedOut: timedOut ? "1" : "0" } }); };
+
   useEffect(() => { setRemaining(active?.remainingSeconds); }, [active?.id]);
   useEffect(() => {
     if (!active?.remainingSeconds) return;
@@ -27,18 +31,58 @@ export default function ExamScreen() {
     const timer = setInterval(() => setRemaining((value) => Math.max(0, (value ?? initial) - 1)), 1000);
     return () => clearInterval(timer);
   }, [active?.id, active?.savedAt]);
-  useEffect(() => { if (active && remaining === 0 && active.configuration.durationSeconds) finish(true); }, [remaining]);
-  if (!active || !question) return <StudyScreen><AppHeader title="Mock Test" back={() => router.replace("/(tabs)/test")} /><EmptyState title="No running test" detail="Set up a new mock test whenever you are ready." action={<PrimaryButton label="Set up test" icon="edit-note" onPress={() => router.replace("/test/setup")} />} /></StudyScreen>;
-  const save = (nextIndex: number, nextAnswers = active.answers) => updateActiveExam(nextIndex, nextAnswers, remaining);
-  const select = (answer: AnswerKey) => save(active.currentIndex, { ...active.answers, [question.id]: answer });
-  const finish = (timedOut = false) => {
-    const result = submitActiveExam(remaining);
-    if (result) router.replace({ pathname: "/test/result", params: { testId: result.id, timedOut: timedOut ? "1" : "0" } });
-  };
-  const requestSubmit = () => setConfirmSubmit(true);
-  return <StudyScreen><AppHeader title={`Question ${active.currentIndex + 1} / ${questions.length}`} subtitle="Correct answers stay hidden until you submit" back={() => save(active.currentIndex)} right={remaining !== undefined ? <View style={styles.timer}><MaterialIcons name="timer" size={16} color={colors.blue} /><Text style={styles.timerText}>{formatTime(remaining)}</Text></View> : undefined} />
-    <View style={styles.page}><ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}><View style={styles.grid}>{questions.map((item, index) => <Pressable key={item!.id} onPress={() => save(index)} style={({ pressed }) => [styles.gridItem, index === active.currentIndex && styles.gridCurrent, active.answers[item!.id] && styles.gridAnswered, pressed && styles.pressed]}><Text style={[styles.gridText, (index === active.currentIndex || active.answers[item!.id]) && styles.gridTextActive]}>{index + 1}</Text></Pressable>)}</View><Card><Text style={styles.question}>Q{question.serial}. {question.prompt}</Text><View style={styles.options}>{Object.entries(question.options).filter(([, value]) => Boolean(value)).map(([key, value]) => { const optionKey = key as AnswerKey; return <Pressable key={key} accessibilityRole="radio" accessibilityState={{ selected: active.answers[question.id] === optionKey }} onPress={() => select(optionKey)} style={({ pressed }) => [styles.option, active.answers[question.id] === optionKey && styles.optionSelected, pressed && styles.pressed]}><Text style={[styles.optionKey, active.answers[question.id] === optionKey && styles.optionKeySelected]}>{key}</Text><Text style={[styles.optionText, active.answers[question.id] === optionKey && styles.optionTextSelected]}>{value}</Text></Pressable>; })}</View></Card></ScrollView><View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>{confirmSubmit ? <View style={styles.confirmation}><Text style={styles.confirmTitle}>Submit this test?</Text><Text style={styles.confirmDetail}>Your score and answer review will open immediately.</Text><View style={styles.confirmActions}><View style={{ flex: 1 }}><PrimaryButton label="Keep working" variant="secondary" onPress={() => setConfirmSubmit(false)} /></View><View style={{ flex: 1 }}><PrimaryButton label="Submit & view result" icon="assignment-turned-in" onPress={() => finish()} /></View></View></View> : <><View style={styles.navigation}><View style={{ flex: 1 }}><PrimaryButton label="Previous" variant="secondary" onPress={() => save(Math.max(0, active.currentIndex - 1))} disabled={active.currentIndex === 0} /></View><View style={{ flex: 1 }}><PrimaryButton label={active.currentIndex === questions.length - 1 ? "Submit Test" : "Next"} icon={active.currentIndex === questions.length - 1 ? "assignment-turned-in" : "arrow-forward"} onPress={() => active.currentIndex === questions.length - 1 ? requestSubmit() : save(active.currentIndex + 1)} /></View></View><PrimaryButton label="Submit Test" variant="secondary" icon="assignment-turned-in" onPress={requestSubmit} /></>}</View></View>
+  useEffect(() => { if (active && remaining === 0 && active.configuration.durationSeconds) submit(true); }, [remaining]);
+
+  if (!active || !questions.length) return <StudyScreen><AppHeader title="Mock Test" back={() => router.replace("/(tabs)/test")} /><EmptyState title="No running test" detail="Set up a new mock test whenever you are ready." action={<PrimaryButton label="Set up test" icon="edit-note" onPress={() => router.replace("/test/setup")} />} /></StudyScreen>;
+
+  const choose = (question: Question, option: AnswerKey) => updateActiveExam(active.currentIndex, { ...active.answers, [question.id]: option }, remaining);
+  const exit = () => updateActiveExam(active.currentIndex, active.answers, remaining);
+  return <StudyScreen>
+    <AppHeader title="Mock Test" subtitle={`${answered} answered · ${questions.length} questions`} back={exit} right={<View style={styles.headerActions}>{remaining !== undefined ? <View style={styles.timer}><MaterialIcons name="timer" size={16} color={colors.blue} /><Text style={styles.timerText}>{formatTime(remaining)}</Text></View> : null}<Pressable accessibilityRole="button" accessibilityLabel="Submit test" onPress={() => setConfirmSubmit(true)} style={({ pressed }) => [styles.submitTop, pressed && styles.pressed]}><Text style={styles.submitTopText}>Submit</Text></Pressable></View>} />
+    <View style={styles.progressWrap}><View style={styles.progressLine}><Text style={styles.progressText}>{answered}/{questions.length} answered</Text><Text style={styles.progressText}>{Math.round((answered / questions.length) * 100)}%</Text></View><ProgressBar value={(answered / questions.length) * 100} color={colors.blue} /></View>
+    <FlatList data={questions} keyExtractor={(item) => item.id} style={styles.list} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} renderItem={({ item, index }) => <QuestionCard question={item} index={index} selected={active.answers[item.id]} starred={Boolean(starred[item.id])} flagged={Boolean(flagged[item.id])} onSelect={(option) => choose(item, option)} onStar={() => setStarred((value) => ({ ...value, [item.id]: !value[item.id] }))} onFlag={() => setFlagged((value) => ({ ...value, [item.id]: !value[item.id] }))} />} ListFooterComponent={<View style={{ height: confirmSubmit ? 190 : 24 }} />} />
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>{confirmSubmit ? <View style={styles.confirmCard}><Text style={styles.confirmTitle}>Submit this test?</Text><Text style={styles.confirmDetail}>{answered} of {questions.length} questions answered. You can still review unanswered cards before submitting.</Text><View style={styles.confirmActions}><View style={{ flex: 1 }}><PrimaryButton label="Keep scrolling" variant="secondary" onPress={() => setConfirmSubmit(false)} /></View><View style={{ flex: 1 }}><PrimaryButton label="Submit test" icon="assignment-turned-in" onPress={() => submit()} /></View></View></View> : <PrimaryButton label="Submit Test" icon="assignment-turned-in" onPress={() => setConfirmSubmit(true)} />}</View>
   </StudyScreen>;
 }
 
-const styles = StyleSheet.create({ page: { flex: 1 }, scroll: { flex: 1 }, content: { padding: 20, paddingBottom: 18, gap: 14 }, footer: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 20, paddingTop: 12, gap: 10 }, timer: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#C9DBFF", backgroundColor: colors.softBlue, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 7 }, timerText: { color: colors.blue, fontSize: 13, fontWeight: "800" }, grid: { flexDirection: "row", flexWrap: "wrap", gap: 7 }, gridItem: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }, gridCurrent: { borderColor: colors.blue, backgroundColor: colors.softBlue }, gridAnswered: { backgroundColor: colors.blue, borderColor: colors.blue }, gridText: { color: colors.muted, fontSize: 12, fontWeight: "800" }, gridTextActive: { color: "#FFFFFF" }, question: { color: colors.ink, fontSize: 18, fontWeight: "800", lineHeight: 27 }, options: { marginTop: 22, gap: 10 }, option: { minHeight: 54, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FCFDFE", flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 }, optionSelected: { borderColor: colors.blue, backgroundColor: colors.softBlue }, optionKey: { width: 27, height: 27, borderRadius: 9, backgroundColor: "#EEF2F7", color: colors.muted, textAlign: "center", lineHeight: 27, fontSize: 13, fontWeight: "800" }, optionKeySelected: { color: "#FFFFFF", backgroundColor: colors.blue }, optionText: { color: colors.ink, fontSize: 14, lineHeight: 19, flex: 1 }, optionTextSelected: { color: colors.blue, fontWeight: "700" }, navigation: { flexDirection: "row", gap: 10 }, confirmation: { borderRadius: 13, padding: 12, backgroundColor: "#F5F9FF", borderWidth: 1, borderColor: "#D5E4FF" }, confirmTitle: { color: colors.ink, fontSize: 15, fontWeight: "800" }, confirmDetail: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3 }, confirmActions: { flexDirection: "row", gap: 10, marginTop: 10 }, pressed: { opacity: 0.7 } });
+function QuestionCard({ question, index, selected, starred, flagged, onSelect, onStar, onFlag }: { question: Question; index: number; selected?: AnswerKey; starred: boolean; flagged: boolean; onSelect: (option: AnswerKey) => void; onStar: () => void; onFlag: () => void }) {
+  return <Card style={styles.questionCard}><View style={styles.questionHeader}><View><Text style={styles.questionNumber}>Q{String(index + 1).padStart(2, "0")}</Text><Text style={styles.breadcrumb}>মুহাম্মদ (সাঃ) · MCQ</Text></View><View style={styles.cardActions}><Pressable accessibilityRole="button" accessibilityLabel="Bookmark question" onPress={onStar} style={({ pressed }) => [styles.actionIcon, pressed && styles.pressed]}><MaterialIcons name={starred ? "star" : "star-border"} size={22} color={starred ? colors.coral : colors.muted} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Flag question" onPress={onFlag} style={({ pressed }) => [styles.actionIcon, pressed && styles.pressed]}><MaterialIcons name={flagged ? "flag" : "outlined-flag"} size={21} color={flagged ? colors.error : colors.muted} /></Pressable></View></View><Text style={styles.prompt}>{question.prompt}</Text><View style={styles.options}>{Object.entries(question.options).filter(([, value]) => Boolean(value)).map(([key, value]) => { const option = key as AnswerKey; const isSelected = selected === option; return <Pressable key={key} accessibilityRole="radio" accessibilityState={{ selected: isSelected }} onPress={() => onSelect(option)} style={({ pressed }) => [styles.option, isSelected && styles.optionSelected, pressed && styles.pressed]}><View style={[styles.radio, isSelected && styles.radioSelected]}>{isSelected ? <View style={styles.radioDot} /> : null}</View><Text style={[styles.optionKey, isSelected && styles.optionKeySelected]}>{key}</Text><Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{value}</Text></Pressable>; })}</View><Text style={[styles.point, selected && styles.pointSelected]}>{selected ? "Answer saved" : "1 point"}</Text></Card>;
+}
+
+const styles = StyleSheet.create({
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 7 },
+  timer: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 7, backgroundColor: colors.softBlue },
+  timerText: { color: colors.blue, fontSize: 13, fontWeight: "800" },
+  submitTop: { minHeight: 38, borderRadius: 12, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.coral },
+  submitTopText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  progressWrap: { paddingHorizontal: 20, paddingBottom: 7 },
+  progressLine: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  progressText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
+  list: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 8, gap: 12 },
+  questionCard: { padding: 16, borderRadius: 22 },
+  questionHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  questionNumber: { color: colors.blue, fontSize: 14, fontWeight: "900", letterSpacing: 0.4 },
+  breadcrumb: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  cardActions: { flexDirection: "row", gap: 3 },
+  actionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.canvas },
+  prompt: { color: colors.ink, fontSize: 17, lineHeight: 25, fontWeight: "800", marginTop: 17 },
+  options: { gap: 9, marginTop: 17 },
+  option: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", paddingHorizontal: 11, paddingVertical: 9 },
+  optionSelected: { borderColor: colors.blue, backgroundColor: colors.softBlue },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#A7B3C2", alignItems: "center", justifyContent: "center" },
+  radioSelected: { borderColor: colors.blue },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.blue },
+  optionKey: { width: 29, height: 29, borderRadius: 10, textAlign: "center", lineHeight: 29, backgroundColor: colors.canvas, color: colors.muted, fontSize: 13, fontWeight: "900" },
+  optionKeySelected: { backgroundColor: colors.blue, color: "#FFFFFF" },
+  optionText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 20 },
+  optionTextSelected: { color: colors.blue, fontWeight: "800" },
+  point: { color: colors.muted, fontSize: 11, fontWeight: "800", marginTop: 12 },
+  pointSelected: { color: colors.success },
+  footer: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 20, paddingTop: 11 },
+  confirmCard: { borderRadius: 16, padding: 13, backgroundColor: colors.softBlue, borderWidth: 1, borderColor: "#C7E4D7" },
+  confirmTitle: { color: colors.ink, fontSize: 15, fontWeight: "900" },
+  confirmDetail: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  confirmActions: { flexDirection: "row", gap: 9, marginTop: 10 },
+  pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
+});

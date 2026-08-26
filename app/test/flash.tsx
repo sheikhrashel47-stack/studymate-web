@@ -1,34 +1,87 @@
-import * as Haptics from "expo-haptics";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppHeader, Card, EmptyState, PrimaryButton, StudyScreen, colors } from "@/components/study/ui";
+import { AppHeader, Card, EmptyState, PrimaryButton, ProgressBar, StudyScreen, colors } from "@/components/study/ui";
 import { type AnswerKey } from "@/lib/study/types";
 import { useStudy } from "@/lib/study/store";
 
+const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+
 export default function FlashTestScreen() {
-  const { subjectId = "", chapterId = "", count = "10" } = useLocalSearchParams<{ subjectId?: string; chapterId?: string; count?: string }>();
+  const { subjectId = "", chapterId = "", count = "20" } = useLocalSearchParams<{ subjectId?: string; chapterId?: string; count?: string }>();
   const { data, recordFlashAttempt } = useStudy();
   const [questionIds, setQuestionIds] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<AnswerKey>();
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
+  const [remaining, setRemaining] = useState(20 * 60);
+  const [starred, setStarred] = useState(false);
   const insets = useSafeAreaInsets();
-  useEffect(() => { if (questionIds.length) return; const available = data.questions.filter((question) => (!subjectId || question.subjectId === subjectId) && (!chapterId || question.chapterId === chapterId)); const ids = [...available].sort(() => Math.random() - 0.5).slice(0, Math.max(1, Number(count) || 10)).map((question) => question.id); setQuestionIds(ids); }, [data.questions, subjectId, chapterId, count, questionIds.length]);
+
+  useEffect(() => { if (questionIds.length) return; const available = data.questions.filter((question) => (!subjectId || question.subjectId === subjectId) && (!chapterId || question.chapterId === chapterId)); const ids = [...available].sort(() => Math.random() - 0.5).slice(0, Math.max(1, Number(count) || 20)).map((question) => question.id); setQuestionIds(ids); }, [data.questions, subjectId, chapterId, count, questionIds.length]);
+  useEffect(() => { if (!questionIds.length) return; const timer = setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 1000); return () => clearInterval(timer); }, [questionIds.length]);
   const questions = useMemo(() => questionIds.map((id) => data.questions.find((question) => question.id === id)).filter(Boolean), [questionIds, data.questions]);
   const question = questions[index];
   if (!questionIds.length) return <StudyScreen><AppHeader title="Flash Test" back={() => router.back()} /><EmptyState icon="bolt" title="Preparing questions" detail="Your quick practice set is loading." /></StudyScreen>;
-  if (index >= questions.length) { const total = correctCount + wrongCount; const accuracy = total ? Math.round((correctCount / total) * 100) : 0; return <StudyScreen><AppHeader title="Flash Result" subtitle="Quick practice complete" back={() => router.replace("/(tabs)/test")} /><View style={styles.resultWrap}><Card style={styles.resultCard}><Text style={styles.resultValue}>{accuracy}%</Text><Text style={styles.resultLabel}>accuracy</Text><View style={styles.resultStats}><Stat label="Correct" value={correctCount} color={colors.success} /><Stat label="Wrong" value={wrongCount} color={colors.error} /><Stat label="Total" value={total} color={colors.blue} /></View></Card><PrimaryButton label="Practice Again" icon="refresh" onPress={() => router.replace("/test/flash-setup")} /><PrimaryButton label="Back to Test" variant="secondary" icon="arrow-back" onPress={() => router.replace("/(tabs)/test")} /></View></StudyScreen>; }
   if (!question) return <StudyScreen><AppHeader title="Flash Test" back={() => router.back()} /><EmptyState icon="bolt" title="Add questions first" detail="Import questions to unlock quick practice." action={<PrimaryButton label="Import Questions" icon="file-upload" onPress={() => router.replace("/questions/import")} />} /></StudyScreen>;
-  const choose = (key: AnswerKey) => { if (selected) return; setSelected(key); const correct = recordFlashAttempt(question.id, key); if (correct) setCorrectCount((value) => value + 1); else setWrongCount((value) => value + 1); if (Platform.OS !== "web") Haptics.notificationAsync(correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error); };
-  const next = () => { if (index >= questions.length - 1) { setIndex(questions.length); return; } setIndex((value) => value + 1); setSelected(undefined); };
+
+  const total = correctCount + wrongCount;
+  const choose = (key: AnswerKey) => { if (selected) return; setSelected(key); const correct = recordFlashAttempt(question.id, key); if (correct) setCorrectCount((value) => value + 1); else setWrongCount((value) => value + 1); };
+  const next = () => { if (index >= questions.length - 1) { router.replace({ pathname: "/test/result", params: { mode: "flash", correct: String(correctCount), wrong: String(wrongCount), total: String(total) } }); return; } setIndex((value) => value + 1); setSelected(undefined); };
+  const previous = () => { if (index > 0) { setIndex((value) => value - 1); setSelected(undefined); } };
   const isCorrect = selected === question.correctOption;
-  return <StudyScreen><AppHeader title="Flash Test" subtitle={`Question ${index + 1}/${questions.length} · ${correctCount} correct · ${wrongCount} wrong`} back={() => router.back()} />
-    <View style={styles.page}><ScrollView style={styles.scroll} contentContainerStyle={styles.content}><View style={styles.progress}><View style={[styles.progressFill, { width: `${((index + 1) / questions.length) * 100}%` }]} /></View><Card><Text style={styles.question}>Q. {question.prompt}</Text><View style={styles.options}>{Object.entries(question.options).filter(([, value]) => Boolean(value)).map(([key, value]) => { const optionKey = key as AnswerKey; const chosen = selected === optionKey; const correctAnswer = Boolean(selected && optionKey === question.correctOption); return <Pressable key={key} disabled={Boolean(selected)} onPress={() => choose(optionKey)} style={({ pressed }) => [styles.option, chosen && (isCorrect ? styles.optionCorrect : styles.optionWrong), correctAnswer && styles.optionCorrect, pressed && !selected && styles.pressed]}><Text style={[styles.optionKey, (chosen || correctAnswer) && styles.optionKeyActive]}>{key}</Text><Text style={[styles.optionText, (chosen || correctAnswer) && styles.optionTextActive]}>{value}</Text></Pressable>; })}</View>{selected ? <View style={[styles.feedback, isCorrect ? styles.feedbackCorrect : styles.feedbackWrong]}><Text style={[styles.feedbackTitle, { color: isCorrect ? colors.success : colors.error }]}>{isCorrect ? "Correct!" : "Incorrect"}</Text><Text style={styles.feedbackText}>Correct answer: {question.correctOption}. {question.options[question.correctOption]}</Text><Text style={styles.feedbackExplanation}>{question.explanation}</Text></View> : null}</Card></ScrollView><View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}><PrimaryButton label={selected ? (index >= questions.length - 1 ? "See Result" : "Next Question") : "Choose an answer"} icon={selected ? "arrow-forward" : "touch-app"} onPress={() => { if (selected) next(); }} disabled={!selected} /><Text style={styles.footerHint}>{selected ? "Your answer is ready. Continue when you are ready." : "Choose one option above to continue."}</Text></View></View>
+  const progress = ((index + 1) / questions.length) * 100;
+
+  return <StudyScreen>
+    <AppHeader title="Flash Test" subtitle="⚡ Instant Feedback Mode" back={() => router.back()} right={<View style={styles.headerActions}><Pressable accessibilityRole="button" accessibilityLabel="Bookmark test" onPress={() => setStarred((value) => !value)} style={styles.headerIcon}><MaterialIcons name={starred ? "star" : "star-border"} size={24} color={starred ? colors.coral : colors.blue} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="More options" style={styles.headerIcon}><MaterialIcons name="more-vert" size={23} color={colors.ink} /></Pressable></View>} />
+    <View style={styles.meta}><Text style={styles.metaText}>{index + 1}/{questions.length} Question</Text><Text style={styles.metaText}>{Math.round(progress)}% Complete</Text><View style={styles.timer}><MaterialIcons name="timer" size={17} color={colors.blue} /><Text style={styles.timerText}>{formatTime(remaining)}</Text><Text style={styles.timerLabel}>Time Left</Text></View></View>
+    <View style={styles.progressWrap}><ProgressBar value={progress} color={colors.blue} /></View>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Card style={styles.questionCard}><View style={styles.cardTop}><View style={styles.typeBadge}><Text style={styles.typeText}>MCQ</Text></View><Text style={styles.point}>1 Point</Text></View><Text style={styles.breadcrumb}>মুহাম্মদ (সাঃ) · Practice</Text><Text style={styles.question}>{question.prompt}</Text><View style={styles.options}>{Object.entries(question.options).filter(([, value]) => Boolean(value)).map(([key, value]) => { const option = key as AnswerKey; const chosen = selected === option; const correctAnswer = Boolean(selected && option === question.correctOption); return <Pressable key={key} disabled={Boolean(selected)} onPress={() => choose(option)} style={({ pressed }) => [styles.option, chosen && (isCorrect ? styles.optionCorrect : styles.optionWrong), correctAnswer && styles.optionCorrect, pressed && !selected && styles.pressed]}><View style={[styles.optionKey, (chosen || correctAnswer) && styles.optionKeyActive]}><Text style={[styles.optionKeyText, (chosen || correctAnswer) && styles.optionKeyTextActive]}>{key}</Text></View><Text style={styles.optionText}>{value}</Text>{correctAnswer ? <MaterialIcons name="check-circle" size={21} color={colors.success} /> : null}</Pressable>; })}</View>{selected ? <View style={[styles.revealed, isCorrect ? styles.revealedCorrect : styles.revealedWrong]}><Text style={[styles.revealedTitle, { color: isCorrect ? colors.success : colors.error }]}>{isCorrect ? "Answer revealed · Correct" : "Answer revealed · Review"}</Text><Text style={styles.revealedAnswer}>Correct answer: {question.correctOption}. {question.options[question.correctOption]}</Text><Text style={styles.revealedDetail}>{question.explanation}</Text></View> : null}</Card>
+    </ScrollView>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}><View style={styles.navigation}><View style={{ flex: 1 }}><PrimaryButton label="< Previous" variant="secondary" onPress={previous} disabled={index === 0} /></View><View style={{ flex: 1 }}><PrimaryButton label={index === questions.length - 1 ? "See Result >" : "Next Question >"} onPress={next} disabled={!selected} /></View></View><Text style={styles.footerHint}>{selected ? "Feedback saved. Continue when you are ready." : "Choose one option to reveal the answer."}</Text></View>
   </StudyScreen>;
 }
-function Stat({ label, value, color }: { label: string; value: number; color: string }) { return <View style={styles.stat}><Text style={[styles.statValue, { color }]}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
-const styles = StyleSheet.create({ page: { flex: 1 }, scroll: { flex: 1 }, content: { padding: 20, paddingBottom: 18, gap: 14 }, footer: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 20, paddingTop: 12 }, footerHint: { color: colors.muted, textAlign: "center", fontSize: 11, lineHeight: 16, marginTop: 7 }, progress: { height: 5, overflow: "hidden", borderRadius: 4, backgroundColor: "#DDE5F0" }, progressFill: { height: "100%", borderRadius: 4, backgroundColor: colors.blue }, question: { color: colors.ink, fontSize: 18, lineHeight: 27, fontWeight: "800", flexShrink: 1 }, options: { marginTop: 22, gap: 10 }, option: { minHeight: 58, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FCFDFE", flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 12, paddingVertical: 12 }, optionCorrect: { borderColor: "#A8DFC4", backgroundColor: "#F1FBF6" }, optionWrong: { borderColor: "#F2BFBF", backgroundColor: "#FFF4F4" }, optionKey: { width: 27, height: 27, flexShrink: 0, marginTop: 1, borderRadius: 9, backgroundColor: "#EEF2F7", color: colors.muted, textAlign: "center", lineHeight: 27, fontSize: 13, fontWeight: "800" }, optionKeyActive: { backgroundColor: colors.blue, color: "#FFFFFF" }, optionText: { color: colors.ink, fontSize: 16, flex: 1, flexShrink: 1, minWidth: 0, lineHeight: 23, paddingTop: 1 }, optionTextActive: { fontWeight: "700" }, feedback: { marginTop: 18, borderRadius: 13, padding: 14 }, feedbackCorrect: { backgroundColor: "#F1FBF6" }, feedbackWrong: { backgroundColor: "#FFF4F4" }, feedbackTitle: { fontSize: 17, fontWeight: "800" }, feedbackText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 5 }, feedbackExplanation: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 7 }, resultWrap: { flex: 1, padding: 20, gap: 12 }, resultCard: { alignItems: "center", backgroundColor: "#F5F9FF", borderColor: "#D5E4FF", paddingVertical: 28 }, resultValue: { color: colors.blue, fontSize: 36, fontWeight: "800" }, resultLabel: { color: colors.muted, fontSize: 12, fontWeight: "700", marginTop: 3 }, resultStats: { width: "100%", flexDirection: "row", justifyContent: "space-around", marginTop: 22, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#D5E4FF" }, stat: { alignItems: "center" }, statValue: { fontSize: 18, fontWeight: "800" }, statLabel: { color: colors.muted, fontSize: 11, marginTop: 3 }, pressed: { opacity: 0.7 } });
+
+const styles = StyleSheet.create({
+  headerActions: { flexDirection: "row", gap: 5 },
+  headerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  meta: { paddingHorizontal: 20, flexDirection: "row", alignItems: "center", gap: 18 },
+  metaText: { color: colors.muted, fontSize: 14, fontWeight: "800" },
+  timer: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4 },
+  timerText: { color: colors.ink, fontSize: 14, fontWeight: "800" },
+  timerLabel: { color: colors.muted, fontSize: 12 },
+  progressWrap: { paddingHorizontal: 20, paddingTop: 11, paddingBottom: 8 },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingVertical: 10, paddingBottom: 20 },
+  questionCard: { borderRadius: 23, padding: 17, borderColor: "#B5D4C5", backgroundColor: "#FCFEFD" },
+  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  typeBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: "#A6C7B7", backgroundColor: colors.softBlue },
+  typeText: { color: colors.blueDark, fontSize: 13, fontWeight: "900", letterSpacing: 1.2 },
+  point: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+  breadcrumb: { color: colors.muted, fontSize: 12, marginTop: 14 },
+  question: { color: colors.ink, fontSize: 20, lineHeight: 29, fontWeight: "900", marginTop: 12 },
+  options: { gap: 10, marginTop: 22 },
+  option: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 15, borderWidth: 1, borderColor: "#B8CEC4", backgroundColor: "#FFFFFF", paddingHorizontal: 13, paddingVertical: 10 },
+  optionCorrect: { borderColor: "#7CB89A", backgroundColor: "#EFF9F3" },
+  optionWrong: { borderColor: "#E6A3A3", backgroundColor: "#FFF5F5" },
+  optionKey: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#B8CEC4", backgroundColor: colors.softBlue },
+  optionKeyActive: { borderColor: colors.blue, backgroundColor: colors.blue },
+  optionKeyText: { color: colors.blueDark, fontSize: 14, fontWeight: "900" },
+  optionKeyTextActive: { color: "#FFFFFF" },
+  optionText: { flex: 1, color: colors.ink, fontSize: 16, lineHeight: 23 },
+  revealed: { marginTop: 18, padding: 14, borderRadius: 15 },
+  revealedCorrect: { backgroundColor: "#EFF9F3" },
+  revealedWrong: { backgroundColor: "#FFF5F5" },
+  revealedTitle: { fontSize: 15, fontWeight: "900" },
+  revealedAnswer: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 5 },
+  revealedDetail: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 7 },
+  footer: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 20, paddingTop: 11 },
+  navigation: { flexDirection: "row", gap: 10 },
+  footerHint: { color: colors.muted, textAlign: "center", fontSize: 11, marginTop: 7 },
+  pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
+});
