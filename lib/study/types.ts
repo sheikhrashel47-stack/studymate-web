@@ -97,6 +97,7 @@ export interface StudyData {
   attempts: Attempt[];
   testHistory: TestResult[];
   activeExam?: ActiveExam;
+  seededContent?: string[];
 }
 
 export const EMPTY_STUDY_DATA: StudyData = {
@@ -106,6 +107,7 @@ export const EMPTY_STUDY_DATA: StudyData = {
   questions: [],
   attempts: [],
   testHistory: [],
+  seededContent: [],
 };
 
 export const ANSWER_KEYS: AnswerKey[] = ["A", "B", "C", "D", "E", "F"];

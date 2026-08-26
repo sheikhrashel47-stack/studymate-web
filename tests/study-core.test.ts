@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { calculateProgress, chapterAccuracy, subjectAccuracy } from "../lib/study/analytics";
+import { mergeBuiltInStudyContent } from "../lib/study/seed";
 import { isCompleteDraft, parseQuestions, questionSignature } from "../lib/study/parser";
 import type { StudyData } from "../lib/study/types";
 
@@ -106,6 +107,18 @@ Answer: A`).join("\n\n");
     const result = parseQuestions(source);
     expect(result.drafts).toHaveLength(120);
     expect(result.drafts.every(isCompleteDraft)).toBe(true);
+  });
+});
+
+describe("built-in StudyMate content", () => {
+  it("seeds Islam → Muhammad (SAW) with 200 validated questions only once", () => {
+    const seeded = mergeBuiltInStudyContent({ version: 1, subjects: [], chapters: [], questions: [], attempts: [], testHistory: [] });
+    expect(seeded.subjects).toEqual(expect.arrayContaining([expect.objectContaining({ id: "islam", name: "ইসলাম" })]));
+    expect(seeded.chapters).toEqual(expect.arrayContaining([expect.objectContaining({ id: "muhammad-saw", subjectId: "islam", name: "মুহাম্মদ (সাঃ)" })]));
+    expect(seeded.questions).toHaveLength(200);
+    expect(seeded.questions[0]).toMatchObject({ id: "muhammad_saw_101", serial: 101, subjectId: "islam", chapterId: "muhammad-saw" });
+    expect(seeded.questions.at(-1)).toMatchObject({ id: "muhammad_saw_300", serial: 300 });
+    expect(mergeBuiltInStudyContent(seeded)).toBe(seeded);
   });
 });
 
