@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { calculateProgress, chapterAccuracy, subjectAccuracy } from "../lib/study/analytics";
 import { mergeBuiltInStudyContent } from "../lib/study/seed";
+import { MUHAMMAD_BOOK_QUESTIONS } from "../lib/study/muhammad_book_seed";
 import { isCompleteDraft, parseQuestions, questionSignature } from "../lib/study/parser";
 import type { StudyData } from "../lib/study/types";
 
@@ -111,13 +112,19 @@ Answer: A`).join("\n\n");
 });
 
 describe("built-in StudyMate content", () => {
-  it("seeds Islam → Muhammad (SAW) with 200 validated questions only once", () => {
+  it("seeds both Muhammad topics with 400 questions only once", () => {
     const seeded = mergeBuiltInStudyContent({ version: 1, subjects: [], chapters: [], questions: [], attempts: [], testHistory: [] });
     expect(seeded.subjects).toEqual(expect.arrayContaining([expect.objectContaining({ id: "islam", name: "ইসলাম" })]));
-    expect(seeded.chapters).toEqual(expect.arrayContaining([expect.objectContaining({ id: "muhammad-saw", subjectId: "islam", name: "মুহাম্মদ (সাঃ)" })]));
-    expect(seeded.questions).toHaveLength(200);
-    expect(seeded.questions[0]).toMatchObject({ id: "muhammad_saw_101", serial: 101, subjectId: "islam", chapterId: "muhammad-saw" });
-    expect(seeded.questions.at(-1)).toMatchObject({ id: "muhammad_saw_300", serial: 300 });
+    expect(seeded.chapters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "muhammad-saw", subjectId: "islam", name: "মুহাম্মদ (সাঃ)" }),
+      expect.objectContaining({ id: "muhammad-saw-book", subjectId: "islam", name: "মুহাম্মদ সাঃ (বই)" }),
+    ]));
+    expect(seeded.questions).toHaveLength(400);
+    expect(seeded.questions.filter((question) => question.chapterId === "muhammad-saw")).toHaveLength(200);
+    expect(seeded.questions.filter((question) => question.chapterId === "muhammad-saw-book")).toHaveLength(200);
+    expect(seeded.questions.find((question) => question.id === "muhammad_book_1")).toMatchObject({ serial: 1, subjectId: "islam", chapterId: "muhammad-saw-book" });
+    const answerCounts = Object.fromEntries(["A", "B", "C", "D"].map((key) => [key, MUHAMMAD_BOOK_QUESTIONS.filter((question) => question.correctOption === key).length]));
+    expect(answerCounts).toEqual({ A: 50, B: 50, C: 50, D: 50 });
     expect(mergeBuiltInStudyContent(seeded)).toBe(seeded);
   });
 });
