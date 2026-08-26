@@ -110,36 +110,36 @@ export function StudyProvider({ children }: PropsWithChildren) {
     const chapterLabel = chapterName.trim();
     const completeDrafts = drafts.filter(isCompleteDraft);
     if (!subjectLabel || !chapterLabel || !completeDrafts.length) return undefined;
-    let summary: ImportSummary | undefined;
-    updateData((current) => {
-      const now = Date.now();
-      const existingSubject = current.subjects.find((subject) => normalized(subject.name) === normalized(subjectLabel));
-      const subjectId = existingSubject?.id ?? createId("subject");
-      const existingChapter = current.chapters.find((chapter) => chapter.subjectId === subjectId && normalized(chapter.name) === normalized(chapterLabel));
-      const chapterId = existingChapter?.id ?? createId("chapter");
-      const knownSignatures = new Set(current.questions.map((question) => questionSignature(question.prompt, question.options)));
-      const batchSignatures = new Set<string>();
-      const uniqueDrafts = completeDrafts.filter((draft) => {
-        const signature = questionSignature(draft.prompt, draft.options);
-        if (knownSignatures.has(signature) || batchSignatures.has(signature)) return false;
-        batchSignatures.add(signature);
-        return true;
-      });
-      const newQuestions: Question[] = uniqueDrafts.map((draft) => ({
-        id: createId("question"), subjectId, chapterId, serial: draft.serial, prompt: draft.prompt,
-        options: draft.options, correctOption: draft.correctOption, explanation: draft.explanation ?? "Explanation unavailable", createdAt: now,
-      }));
-      summary = { added: newQuestions.length, skipped: drafts.length - newQuestions.length, duplicates: completeDrafts.length - uniqueDrafts.length, invalid: drafts.length - completeDrafts.length, subjectId: newQuestions.length ? subjectId : existingSubject?.id ?? "", chapterId: newQuestions.length ? chapterId : existingChapter?.id ?? "" };
-      if (!newQuestions.length) return current;
-      return {
+    const current = data;
+    const now = Date.now();
+    const existingSubject = current.subjects.find((subject) => normalized(subject.name) === normalized(subjectLabel));
+    const subjectId = existingSubject?.id ?? createId("subject");
+    const existingChapter = current.chapters.find((chapter) => chapter.subjectId === subjectId && normalized(chapter.name) === normalized(chapterLabel));
+    const chapterId = existingChapter?.id ?? createId("chapter");
+    const knownSignatures = new Set(current.questions.map((question) => questionSignature(question.prompt, question.options)));
+    const batchSignatures = new Set<string>();
+    const uniqueDrafts = completeDrafts.filter((draft) => {
+      const signature = questionSignature(draft.prompt, draft.options);
+      if (knownSignatures.has(signature) || batchSignatures.has(signature)) return false;
+      batchSignatures.add(signature);
+      return true;
+    });
+    const newQuestions: Question[] = uniqueDrafts.map((draft) => ({
+      id: createId("question"), subjectId, chapterId, serial: draft.serial, prompt: draft.prompt,
+      options: draft.options, correctOption: draft.correctOption, explanation: draft.explanation ?? "Explanation unavailable", createdAt: now,
+    }));
+    const summary: ImportSummary = { added: newQuestions.length, skipped: drafts.length - newQuestions.length, duplicates: completeDrafts.length - uniqueDrafts.length, invalid: drafts.length - completeDrafts.length, subjectId: newQuestions.length ? subjectId : existingSubject?.id ?? "", chapterId: newQuestions.length ? chapterId : existingChapter?.id ?? "" };
+    if (newQuestions.length) {
+      const next = {
         ...current,
         subjects: existingSubject ? current.subjects : [...current.subjects, { id: subjectId, name: subjectLabel, createdAt: now }],
         chapters: existingChapter ? current.chapters : [...current.chapters, { id: chapterId, subjectId, name: chapterLabel, createdAt: now }],
         questions: [...current.questions, ...newQuestions],
       };
-    });
+      updateData(() => next);
+    }
     return summary;
-  }, [updateData]);
+  }, [data, updateData]);
 
   const deleteQuestion = useCallback((id: string) => updateData((current) => ({ ...current, questions: current.questions.filter((question) => question.id !== id) })), [updateData]);
   const deleteChapter = useCallback((id: string) => updateData((current) => ({

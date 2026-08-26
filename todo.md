@@ -12,3 +12,4 @@
 - [x] Fix the reported question-import parser failure and verify Plain Text, JSON, and HTML import previews on device-compatible input.
 - [x] Make in-app question entry work without APK updates by exposing usable mobile import, preview, and save actions above the keyboard.
 - [ ] Reconcile and implement the user-supplied A–Z Class 8 study-app behavior, including the detailed parser, question-bank, test, result, and progress requirements.
+- [x] Verify the complete in-app question import workflow in the web preview before publication.
