@@ -17,3 +17,4 @@
 - [x] Rebuild StudyMate as a responsive web-first experience and fix narrow-screen test options, text wrapping, and fixed action visibility.
 - [x] Deliver StudyMate as a browser-only web app for mobile Chrome use instead of an APK.
 - [x] Back up the StudyMate web-app source to a private GitHub repository for long-term ownership.
+- [x] Change the StudyMate GitHub repository visibility to public and verify public access.
