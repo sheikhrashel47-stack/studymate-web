@@ -41,7 +41,7 @@ export default function ExamScreen() {
     <AppHeader title="Mock Test" subtitle={`${answered} answered · ${questions.length} questions`} back={exit} right={<View style={styles.headerActions}>{remaining !== undefined ? <View style={styles.timer}><MaterialIcons name="timer" size={16} color={colors.blue} /><Text style={styles.timerText}>{formatTime(remaining)}</Text></View> : null}<Pressable accessibilityRole="button" accessibilityLabel="Submit test" onPress={() => setConfirmSubmit(true)} style={({ pressed }) => [styles.submitTop, pressed && styles.pressed]}><Text style={styles.submitTopText}>Submit</Text></Pressable></View>} />
     <View style={styles.progressWrap}><View style={styles.progressLine}><Text style={styles.progressText}>{answered}/{questions.length} answered</Text><Text style={styles.progressText}>{Math.round((answered / questions.length) * 100)}%</Text></View><ProgressBar value={(answered / questions.length) * 100} color={colors.blue} /></View>
     <FlatList data={questions} keyExtractor={(item) => item.id} style={styles.list} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} renderItem={({ item, index }) => <QuestionCard question={item} index={index} selected={active.answers[item.id]} starred={Boolean(starred[item.id])} flagged={Boolean(flagged[item.id])} onSelect={(option) => choose(item, option)} onStar={() => setStarred((value) => ({ ...value, [item.id]: !value[item.id] }))} onFlag={() => setFlagged((value) => ({ ...value, [item.id]: !value[item.id] }))} />} ListFooterComponent={<View style={{ height: confirmSubmit ? 190 : 24 }} />} />
-    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>{confirmSubmit ? <View style={styles.confirmCard}><Text style={styles.confirmTitle}>Submit this test?</Text><Text style={styles.confirmDetail}>{answered} of {questions.length} questions answered. You can still review unanswered cards before submitting.</Text><View style={styles.confirmActions}><View style={{ flex: 1 }}><PrimaryButton label="Keep scrolling" variant="secondary" onPress={() => setConfirmSubmit(false)} /></View><View style={{ flex: 1 }}><PrimaryButton label="Submit test" icon="assignment-turned-in" onPress={() => submit()} /></View></View></View> : <PrimaryButton label="Submit Test" icon="assignment-turned-in" onPress={() => setConfirmSubmit(true)} />}</View>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>{confirmSubmit ? <View style={styles.confirmCard}><Text style={styles.confirmTitle}>Submit this test?</Text><Text style={styles.confirmDetail}>{answered} of {questions.length} questions answered. You can still review unanswered cards before submitting.</Text><View style={styles.confirmActions}><View style={{ flex: 1 }}><PrimaryButton label="Keep scrolling" variant="secondary" onPress={() => setConfirmSubmit(false)} /></View><View style={{ flex: 1 }}><PrimaryButton label="Submit test" icon="assignment-turned-in" onPress={() => submit()} /></View></View></View> : <PrimaryButton label="Submit Test" icon="assignment-turned-in" onPress={() => setConfirmSubmit(true)} compact />}</View>
   </StudyScreen>;
 }
 
@@ -55,27 +55,27 @@ const styles = StyleSheet.create({
   timerText: { color: colors.blue, fontSize: 13, fontWeight: "800" },
   submitTop: { minHeight: 38, borderRadius: 12, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.coral },
   submitTopText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
-  progressWrap: { paddingHorizontal: 20, paddingBottom: 7 },
+  progressWrap: { paddingHorizontal: 12, paddingBottom: 6 },
   progressLine: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   progressText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
   list: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 8, gap: 12 },
-  questionCard: { padding: 16, borderRadius: 22 },
+  content: { paddingHorizontal: 12, paddingTop: 6, gap: 8 },
+  questionCard: { padding: 13, borderRadius: 17, borderTopWidth: 0, shadowOpacity: 0.025, elevation: 0 },
   questionHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   questionNumber: { color: colors.blue, fontSize: 14, fontWeight: "900", letterSpacing: 0.4 },
   breadcrumb: { color: colors.muted, fontSize: 11, marginTop: 3 },
   cardActions: { flexDirection: "row", gap: 3 },
   actionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.canvas },
-  prompt: { color: colors.ink, fontSize: 17, lineHeight: 25, fontWeight: "800", marginTop: 17 },
-  options: { gap: 9, marginTop: 17 },
-  option: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", paddingHorizontal: 11, paddingVertical: 9 },
+  prompt: { color: colors.ink, fontSize: 16, lineHeight: 23, fontWeight: "800", marginTop: 12 },
+  options: { gap: 7, marginTop: 13 },
+  option: { minHeight: 47, flexDirection: "row", alignItems: "center", gap: 9, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: "#FFFFFF", paddingHorizontal: 10, paddingVertical: 7 },
   optionSelected: { borderColor: colors.blue, backgroundColor: colors.softBlue },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#A7B3C2", alignItems: "center", justifyContent: "center" },
   radioSelected: { borderColor: colors.blue },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.blue },
-  optionKey: { width: 29, height: 29, borderRadius: 10, textAlign: "center", lineHeight: 29, backgroundColor: colors.canvas, color: colors.muted, fontSize: 13, fontWeight: "900" },
+  optionKey: { width: 27, height: 27, borderRadius: 9, textAlign: "center", lineHeight: 27, backgroundColor: colors.canvas, color: colors.muted, fontSize: 12, fontWeight: "900" },
   optionKeySelected: { backgroundColor: colors.blue, color: "#FFFFFF" },
-  optionText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 20 },
+  optionText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 19 },
   optionTextSelected: { color: colors.blue, fontWeight: "800" },
   point: { color: colors.muted, fontSize: 11, fontWeight: "800", marginTop: 12 },
   pointSelected: { color: colors.success },

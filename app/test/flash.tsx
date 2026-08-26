@@ -43,30 +43,30 @@ export default function FlashTestScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Card style={styles.questionCard}><View style={styles.cardTop}><View style={styles.typeBadge}><Text style={styles.typeText}>MCQ</Text></View><Text style={styles.point}>1 Point</Text></View><Text style={styles.breadcrumb}>মুহাম্মদ (সাঃ) · Practice</Text><Text style={styles.question}>{question.prompt}</Text><View style={styles.options}>{Object.entries(question.options).filter(([, value]) => Boolean(value)).map(([key, value]) => { const option = key as AnswerKey; const chosen = selected === option; const correctAnswer = Boolean(selected && option === question.correctOption); return <Pressable key={key} disabled={Boolean(selected)} onPress={() => choose(option)} style={({ pressed }) => [styles.option, chosen && (isCorrect ? styles.optionCorrect : styles.optionWrong), correctAnswer && styles.optionCorrect, pressed && !selected && styles.pressed]}><View style={[styles.optionKey, (chosen || correctAnswer) && styles.optionKeyActive]}><Text style={[styles.optionKeyText, (chosen || correctAnswer) && styles.optionKeyTextActive]}>{key}</Text></View><Text style={styles.optionText}>{value}</Text>{correctAnswer ? <MaterialIcons name="check-circle" size={21} color={colors.success} /> : null}</Pressable>; })}</View>{selected ? <View style={[styles.revealed, isCorrect ? styles.revealedCorrect : styles.revealedWrong]}><Text style={[styles.revealedTitle, { color: isCorrect ? colors.success : colors.error }]}>{isCorrect ? "Answer revealed · Correct" : "Answer revealed · Review"}</Text><Text style={styles.revealedAnswer}>Correct answer: {question.correctOption}. {question.options[question.correctOption]}</Text><Text style={styles.revealedDetail}>{question.explanation}</Text></View> : null}</Card>
     </ScrollView>
-    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}><View style={styles.navigation}><View style={{ flex: 1 }}><PrimaryButton label="< Previous" variant="secondary" onPress={previous} disabled={index === 0} /></View><View style={{ flex: 1 }}><PrimaryButton label={index === questions.length - 1 ? "See Result >" : "Next Question >"} onPress={next} disabled={!selected} /></View></View><Text style={styles.footerHint}>{selected ? "Feedback saved. Continue when you are ready." : "Choose one option to reveal the answer."}</Text></View>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}><View style={styles.navigation}><View style={{ flex: 1 }}><PrimaryButton label="< Previous" variant="secondary" onPress={previous} disabled={index === 0} compact /></View><View style={{ flex: 1 }}><PrimaryButton label={index === questions.length - 1 ? "See Result >" : "Next Question >"} onPress={next} disabled={!selected} compact /></View></View><Text style={styles.footerHint}>{selected ? "Feedback saved. Continue when you are ready." : "Choose one option to reveal the answer."}</Text></View>
   </StudyScreen>;
 }
 
 const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", gap: 5 },
   headerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
-  meta: { paddingHorizontal: 20, flexDirection: "row", alignItems: "center", gap: 18 },
+  meta: { paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 12 },
   metaText: { color: colors.muted, fontSize: 14, fontWeight: "800" },
   timer: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4 },
   timerText: { color: colors.ink, fontSize: 14, fontWeight: "800" },
   timerLabel: { color: colors.muted, fontSize: 12 },
-  progressWrap: { paddingHorizontal: 20, paddingTop: 11, paddingBottom: 8 },
+  progressWrap: { paddingHorizontal: 12, paddingTop: 9, paddingBottom: 5 },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingVertical: 10, paddingBottom: 20 },
-  questionCard: { borderRadius: 23, padding: 17, borderColor: "#B5D4C5", backgroundColor: "#FCFEFD" },
+  content: { paddingHorizontal: 8, paddingVertical: 7, paddingBottom: 14 },
+  questionCard: { marginHorizontal: 4, borderRadius: 17, padding: 14, borderTopWidth: 0, borderColor: "#B5D4C5", backgroundColor: "#FCFEFD", shadowOpacity: 0.025, elevation: 0 },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   typeBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: "#A6C7B7", backgroundColor: colors.softBlue },
   typeText: { color: colors.blueDark, fontSize: 13, fontWeight: "900", letterSpacing: 1.2 },
   point: { color: colors.muted, fontSize: 14, fontWeight: "700" },
   breadcrumb: { color: colors.muted, fontSize: 12, marginTop: 14 },
   question: { color: colors.ink, fontSize: 20, lineHeight: 29, fontWeight: "900", marginTop: 12 },
-  options: { gap: 10, marginTop: 22 },
-  option: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 15, borderWidth: 1, borderColor: "#B8CEC4", backgroundColor: "#FFFFFF", paddingHorizontal: 13, paddingVertical: 10 },
+  options: { gap: 7, marginTop: 17 },
+  option: { minHeight: 50, flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 13, borderWidth: 1, borderColor: "#B8CEC4", backgroundColor: "#FFFFFF", paddingHorizontal: 11, paddingVertical: 8 },
   optionCorrect: { borderColor: "#7CB89A", backgroundColor: "#EFF9F3" },
   optionWrong: { borderColor: "#E6A3A3", backgroundColor: "#FFF5F5" },
   optionKey: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#B8CEC4", backgroundColor: colors.softBlue },
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   revealedTitle: { fontSize: 15, fontWeight: "900" },
   revealedAnswer: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 5 },
   revealedDetail: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 7 },
-  footer: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 20, paddingTop: 11 },
+  footer: { backgroundColor: colors.canvas, borderTopWidth: 0, paddingHorizontal: 14, paddingTop: 6 },
   navigation: { flexDirection: "row", gap: 10 },
   footerHint: { color: colors.muted, textAlign: "center", fontSize: 11, marginTop: 7 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },

@@ -34,12 +34,12 @@ export function AppHeader({ title, subtitle, back, right }: { title: string; sub
   </View>;
 }
 
-export function PrimaryButton({ label, onPress, icon, disabled, variant = "primary" }: { label: string; onPress: () => void; icon?: keyof typeof MaterialIcons.glyphMap; disabled?: boolean; variant?: "primary" | "secondary" | "danger" }) {
+export function PrimaryButton({ label, onPress, icon, disabled, variant = "primary", compact = false }: { label: string; onPress: () => void; icon?: keyof typeof MaterialIcons.glyphMap; disabled?: boolean; variant?: "primary" | "secondary" | "danger"; compact?: boolean }) {
   const isPrimary = variant === "primary";
   const isDanger = variant === "danger";
-  return <Pressable disabled={disabled} onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.button, isPrimary ? styles.buttonPrimary : isDanger ? styles.buttonDanger : styles.buttonSecondary, disabled && styles.buttonDisabled, pressed && !disabled && styles.buttonPressed]}>
-    {icon ? <MaterialIcons name={icon} size={19} color={isPrimary || isDanger ? "#FFFFFF" : colors.blue} /> : null}
-    <Text style={[styles.buttonText, !isPrimary && !isDanger && styles.buttonTextSecondary]}>{label}</Text>
+  return <Pressable disabled={disabled} onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.button, compact && styles.buttonCompact, isPrimary ? styles.buttonPrimary : isDanger ? styles.buttonDanger : styles.buttonSecondary, disabled && styles.buttonDisabled, pressed && !disabled && styles.buttonPressed]}>
+    {icon ? <MaterialIcons name={icon} size={compact ? 17 : 19} color={isPrimary || isDanger ? "#FFFFFF" : colors.blue} /> : null}
+    <Text style={[styles.buttonText, compact && styles.buttonTextCompact, !isPrimary && !isDanger && styles.buttonTextSecondary]}>{label}</Text>
   </Pressable>;
 }
 
@@ -76,10 +76,12 @@ export const styles = StyleSheet.create({
   iconButton: { height: 42, width: 42, marginLeft: -10, marginRight: 6, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, padding: 17, shadowColor: colors.ink, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.045, shadowRadius: 12, elevation: 1 },
   button: { minHeight: 50, borderRadius: 15, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  buttonCompact: { minHeight: 42, borderRadius: 12, paddingHorizontal: 13, gap: 6 },
   buttonPrimary: { backgroundColor: colors.blue },
   buttonSecondary: { backgroundColor: colors.softBlue, borderColor: "#C7E4D7", borderWidth: 1 },
   buttonDanger: { backgroundColor: colors.error },
   buttonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800", flexShrink: 1, textAlign: "center" },
+  buttonTextCompact: { fontSize: 13 },
   buttonTextSecondary: { color: colors.blue },
   buttonDisabled: { opacity: 0.45 },
   buttonPressed: { opacity: 0.9, transform: [{ scale: 0.975 }] },

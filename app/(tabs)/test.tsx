@@ -21,21 +21,21 @@ export default function TestTab() {
 }
 
 function ModeCard({ title, detail, icon, tint, background, action, onPress }: { title: string; detail: string; icon: "edit-note" | "bolt"; tint: string; background: string; action: string; onPress: () => void }) {
-  return <Card style={styles.modeCard}><View style={styles.modeHeader}><IconBadge icon={icon} color={tint} background={background} size={50} /><View style={styles.modeTag}><Text style={[styles.modeTagText, { color: tint }]}>FOCUSED MODE</Text></View></View><Text style={styles.modeTitle}>{title}</Text><Text style={styles.modeDetail}>{detail}</Text><View style={styles.modeAction}><PrimaryButton label={action} icon="arrow-forward" onPress={onPress} /></View></Card>;
+  return <Card style={styles.modeCard}><View style={styles.modeHeader}><IconBadge icon={icon} color={tint} background={background} size={50} /><View style={styles.modeTag}><Text style={[styles.modeTagText, { color: tint }]}>FOCUSED MODE</Text></View></View><Text style={styles.modeTitle}>{title}</Text><Text style={styles.modeDetail}>{detail}</Text><View style={styles.modeAction}><PrimaryButton label={action} icon="arrow-forward" onPress={onPress} compact /></View></Card>;
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingBottom: 30, gap: 12 },
-  introCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFF9F6", borderColor: "#FBE1D8", padding: 14 },
+  content: { paddingHorizontal: 18, paddingBottom: 28, gap: 9 },
+  introCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFF9F6", borderColor: "#FBE1D8", padding: 12, borderRadius: 17 },
   introIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.softCoral },
   introCopy: { flex: 1 },
   introTitle: { color: colors.ink, fontSize: 15, fontWeight: "800" },
   introDetail: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
-  modeCard: { padding: 18 },
+  modeCard: { padding: 14, borderRadius: 18 },
   modeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   modeTag: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 99, backgroundColor: "#F7F8FB" },
   modeTagText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
-  modeTitle: { color: colors.ink, fontSize: 20, fontWeight: "800", marginTop: 15 },
-  modeDetail: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 5 },
-  modeAction: { marginTop: 17 },
+  modeTitle: { color: colors.ink, fontSize: 18, fontWeight: "800", marginTop: 11 },
+  modeDetail: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  modeAction: { marginTop: 12 },
 });

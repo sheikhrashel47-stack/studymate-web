@@ -11,6 +11,13 @@ const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((par
 export default function QuestionsTab() {
   const { data, isReady } = useStudy();
   const [query, setQuery] = useState("");
+  const onlyChapter = data.chapters.length === 1 ? data.chapters[0] : undefined;
+  const directQuestions = useMemo(() => {
+    if (!onlyChapter) return [];
+    const needle = query.trim().toLocaleLowerCase();
+    const questions = data.questions.filter((question) => question.chapterId === onlyChapter.id);
+    return needle ? questions.filter((question) => `${question.prompt} ${Object.values(question.options).join(" ")} ${question.explanation}`.toLocaleLowerCase().includes(needle)) : questions;
+  }, [data.questions, onlyChapter, query]);
   const visibleSubjects = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!normalizedQuery) return data.subjects;
@@ -21,35 +28,44 @@ export default function QuestionsTab() {
   }, [data.chapters, data.subjects, query]);
 
   if (!isReady) return <StudyScreen><AppHeader title="Question Bank" subtitle="Loading your local bank" /><View style={styles.center}><Text style={styles.loading}>Opening question bank…</Text></View></StudyScreen>;
+  if (!data.questions.length) return <StudyScreen><AppHeader title="Question Bank" subtitle="সব Subject" right={<Pressable accessibilityRole="button" accessibilityLabel="Manage question bank" onPress={() => router.push("/questions/manage")} style={styles.headerIcon}><MaterialIcons name="settings" size={21} color={colors.ink} /></Pressable>} /><EmptyState icon="menu-book" title="No questions yet" detail="Import your first MCQs, choose a subject and chapter, then practise offline." action={<PrimaryButton label="Import questions" icon="file-upload" onPress={() => router.push("/questions/import")} />} /></StudyScreen>;
+  if (onlyChapter) return <TopicQuestionBank chapterId={onlyChapter.id} chapterName={onlyChapter.name} questions={directQuestions} query={query} setQuery={setQuery} total={data.questions.length} />;
 
   return <StudyScreen>
-    <AppHeader title="Question Bank" subtitle={data.questions.length ? "সব Subject" : "Your offline question bank"} right={<View style={styles.headerActions}><Pressable accessibilityRole="button" accessibilityLabel="Search question bank" onPress={() => setQuery((value) => value ? "" : " ")} style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}><MaterialIcons name="search" size={22} color={colors.ink} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Manage question bank" onPress={() => router.push("/questions/manage")} style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}><MaterialIcons name="settings" size={21} color={colors.ink} /></Pressable></View>} />
-    {data.subjects.length ? <View style={styles.searchWrap}><MaterialIcons name="search" size={20} color={colors.muted} /><TextInput value={query.trim()} onChangeText={setQuery} placeholder="Search subjects or chapters" placeholderTextColor="#98A2B3" style={styles.searchInput} returnKeyType="search" /></View> : null}
-    <FlatList data={visibleSubjects} numColumns={2} keyExtractor={(item) => item.id} contentContainerStyle={[styles.list, !visibleSubjects.length && { flexGrow: 1 }]} columnWrapperStyle={styles.columns} showsVerticalScrollIndicator={false} ListHeaderComponent={data.subjects.length ? <Text style={styles.sectionLabel}>QUESTION BANK</Text> : null} ListEmptyComponent={data.subjects.length ? <EmptyState icon="search-off" title="No match found" detail="Try a different subject or chapter name." action={<PrimaryButton label="Clear search" variant="secondary" onPress={() => setQuery("")} />} /> : <EmptyState icon="menu-book" title="No questions yet" detail="Import your first MCQs, choose a subject and chapter, then practise offline." action={<PrimaryButton label="Import questions" icon="file-upload" onPress={() => router.push("/questions/import")} />} />} renderItem={({ item, index }) => {
-      const chapters = data.chapters.filter((chapter) => chapter.subjectId === item.id);
-      const count = data.questions.filter((question) => question.subjectId === item.id).length;
-      const tone = index % 3 === 0 ? { color: colors.blue, background: colors.softBlue } : index % 3 === 1 ? { color: "#7B4ED6", background: "#F0EAFE" } : { color: colors.success, background: "#E8F5EE" };
-      return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.name}`} onPress={() => router.push({ pathname: "/questions/[subjectId]", params: { subjectId: item.id } })} style={({ pressed }) => [styles.cell, pressed && styles.pressed]}><Card style={styles.subjectCard}><View style={styles.subjectTop}><IconBadge icon="auto-stories" color={tone.color} background={tone.background} size={44} /><View style={styles.chevron}><MaterialIcons name="chevron-right" size={21} color={colors.muted} /></View></View><Text numberOfLines={1} style={styles.subjectName}>{item.name}</Text><Text style={styles.subjectMeta}>{chapters.length} topic{chapters.length === 1 ? "" : "s"} · {count} Q</Text></Card></Pressable>;
-    }} ListFooterComponent={data.subjects.length ? <View style={styles.footer}><PrimaryButton label="Import more questions" icon="file-upload" variant="secondary" onPress={() => router.push("/questions/import")} /></View> : null} />
+    <AppHeader title="Question Bank" subtitle="সব Subject" right={<View style={styles.headerActions}><Pressable accessibilityRole="button" accessibilityLabel="Search question bank" onPress={() => setQuery((value) => value ? "" : " ")} style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}><MaterialIcons name="search" size={22} color={colors.ink} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Manage question bank" onPress={() => router.push("/questions/manage")} style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}><MaterialIcons name="settings" size={21} color={colors.ink} /></Pressable></View>} />
+    <View style={styles.searchWrap}><MaterialIcons name="search" size={20} color={colors.muted} /><TextInput value={query.trim()} onChangeText={setQuery} placeholder="Search subjects or chapters" placeholderTextColor="#98A2B3" style={styles.searchInput} returnKeyType="search" /></View>
+    <FlatList data={visibleSubjects} numColumns={2} keyExtractor={(item) => item.id} contentContainerStyle={[styles.list, !visibleSubjects.length && { flexGrow: 1 }]} columnWrapperStyle={styles.columns} showsVerticalScrollIndicator={false} ListHeaderComponent={<Text style={styles.sectionLabel}>QUESTION BANK</Text>} ListEmptyComponent={<EmptyState icon="search-off" title="No match found" detail="Try a different subject or chapter name." action={<PrimaryButton label="Clear search" variant="secondary" onPress={() => setQuery("")} />} />} renderItem={({ item, index }) => { const chapters = data.chapters.filter((chapter) => chapter.subjectId === item.id); const count = data.questions.filter((question) => question.subjectId === item.id).length; const tone = index % 3 === 0 ? { color: colors.blue, background: colors.softBlue } : index % 3 === 1 ? { color: "#7B4ED6", background: "#F0EAFE" } : { color: colors.success, background: "#E8F5EE" }; return <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.name}`} onPress={() => router.push({ pathname: "/questions/[subjectId]", params: { subjectId: item.id } })} style={({ pressed }) => [styles.cell, pressed && styles.pressed]}><Card style={styles.subjectCard}><View style={styles.subjectTop}><IconBadge icon="auto-stories" color={tone.color} background={tone.background} size={42} /><View style={styles.chevron}><MaterialIcons name="chevron-right" size={21} color={colors.muted} /></View></View><Text numberOfLines={1} style={styles.subjectName}>{item.name}</Text><Text style={styles.subjectMeta}>{chapters.length} topic{chapters.length === 1 ? "" : "s"} · {count} Q</Text></Card></Pressable>; }} ListFooterComponent={<View style={styles.footer}><PrimaryButton label="Import more questions" icon="file-upload" variant="secondary" onPress={() => router.push("/questions/import")} /></View>} />
   </StudyScreen>;
+}
+
+function TopicQuestionBank({ chapterId, chapterName, questions, query, setQuery, total }: { chapterId: string; chapterName: string; questions: { id: string; serial: number; prompt: string; options: Record<string, string>; explanation: string }[]; query: string; setQuery: (value: string) => void; total: number }) {
+  return <StudyScreen><AppHeader title={chapterName} subtitle={`${total} questions`} right={<View style={styles.headerActions}><Pressable accessibilityRole="button" accessibilityLabel="Manage question bank" onPress={() => router.push("/questions/manage")} style={styles.headerIcon}><MaterialIcons name="settings" size={21} color={colors.ink} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Import questions" onPress={() => router.push("/questions/import")} style={styles.headerIcon}><MaterialIcons name="add" size={22} color={colors.ink} /></Pressable></View>} /><View style={styles.topicSearch}><MaterialIcons name="search" size={20} color={colors.muted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search questions, options, or explanation" placeholderTextColor="#98A2B3" style={styles.searchInput} returnKeyType="search" /></View><FlatList data={questions} keyExtractor={(item) => item.id} contentContainerStyle={[styles.questionList, !questions.length && { flexGrow: 1 }]} showsVerticalScrollIndicator={false} ListEmptyComponent={<EmptyState icon="search-off" title="No matching questions" detail="Try another word or clear the search." action={<PrimaryButton label="Clear search" variant="secondary" onPress={() => setQuery("")} />} />} renderItem={({ item }) => <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/questions/detail/[questionId]", params: { questionId: item.id } })} style={({ pressed }) => [pressed && styles.pressed]}><Card style={styles.questionCard}><View style={styles.questionTop}><View style={styles.serialBadge}><Text style={styles.serial}>Q{item.serial}</Text></View><MaterialIcons name="chevron-right" size={23} color={colors.muted} /></View><Text numberOfLines={3} style={styles.question}>{item.prompt}</Text><Text numberOfLines={1} style={styles.questionMeta}>{Object.keys(item.options).length} options · Answer saved · {item.explanation === "Explanation unavailable" ? "No explanation" : "Explanation included"}</Text></Card></Pressable>} /></StudyScreen>;
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   loading: { color: colors.muted, fontSize: 14 },
   headerActions: { flexDirection: "row", gap: 7 },
-  headerIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  headerIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
-  searchWrap: { marginHorizontal: 20, marginBottom: 9, minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 14, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  searchWrap: { marginHorizontal: 18, marginBottom: 9, minHeight: 46, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 13, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  topicSearch: { marginHorizontal: 12, marginBottom: 8, minHeight: 46, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 13, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   searchInput: { flex: 1, color: colors.ink, fontSize: 15, paddingVertical: 10 },
-  list: { paddingHorizontal: 20, paddingBottom: 30, gap: 10 },
-  columns: { gap: 10 },
+  list: { paddingHorizontal: 18, paddingBottom: 28, gap: 9 },
+  columns: { gap: 9 },
   sectionLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, marginBottom: 1 },
   cell: { flex: 1, minWidth: 0 },
-  subjectCard: { minHeight: 132, padding: 14, justifyContent: "space-between" },
+  subjectCard: { minHeight: 126, padding: 13, justifyContent: "space-between", borderRadius: 17 },
   subjectTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  chevron: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
-  subjectName: { color: colors.ink, fontSize: 17, fontWeight: "800", marginTop: 10 },
-  subjectMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  footer: { paddingTop: 3, paddingBottom: 7 },
+  chevron: { width: 26, height: 26, alignItems: "center", justifyContent: "center" },
+  subjectName: { color: colors.ink, fontSize: 16, fontWeight: "800", marginTop: 9 },
+  subjectMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
+  footer: { paddingTop: 2, paddingBottom: 6 },
+  questionList: { paddingHorizontal: 12, paddingBottom: 28, gap: 8 },
+  questionCard: { padding: 12, borderRadius: 16, borderTopWidth: 0, shadowOpacity: 0.025, elevation: 0 },
+  questionTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  serialBadge: { minWidth: 47, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: colors.softBlue },
+  serial: { color: colors.blueDark, fontSize: 12, fontWeight: "900" },
+  question: { color: colors.ink, fontSize: 16, lineHeight: 22, fontWeight: "800", marginTop: 9 },
+  questionMeta: { color: colors.muted, fontSize: 11, marginTop: 8 },
 });
