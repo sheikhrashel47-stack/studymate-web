@@ -1,4 +1,4 @@
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const root = process.argv[2] ?? "docs";
@@ -22,4 +22,5 @@ async function walk(directory) {
 
 await stat(root);
 await walk(root);
-console.log(`Patched HTML cache metadata for build ${build}`);
+await copyFile(join(root, "index.html"), join(root, "404.html"));
+console.log(`Patched HTML cache metadata and SPA fallback for build ${build}`);
